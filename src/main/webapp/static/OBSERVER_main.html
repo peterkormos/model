@@ -1,0 +1,53 @@
+<body><html>
+<form name="input" action="../RegistrationServlet" method="put">
+  <p>
+  </p>
+    <input type="hidden" id="command"  name="command" value="">
+	<input type="hidden" name="language" value="HU">
+    <a href="#" onClick="document.getElementById('command').value='inputForModifyUser';this.parentNode.submit();">Felhaszn&aacute;l&oacute;i 
+    adatok lek&eacute;rdez&aacute;se/m&oacute;dos&iacute;t&aacute;sa</a> - <a href="#" onClick="document.getElementById('command').value='logout';this.parentNode.submit();">Kijelentkez&eacute;s</a> 
+  <hr>
+  <p><em><strong>Lek&eacute;rdez&eacute;sek...</strong></em></p>
+  <input type="hidden" name="withDetailing" value="false">
+  <a href="#" onClick="document.getElementById('command').value='listAllModels';this.parentNode.submit();">&Ouml;sszes 
+  benevezett makett list&aacute;z&aacute;sa</a> - <a href="#" onClick="document.getElementById('command').value='statistics';this.parentNode.submit();"><strong>Statisztika 
+  k&eacute;sz&iacute;t&eacute;se</strong></a> - <a href="#" onClick="document.getElementById('command').value='inputForSelectModel';this.parentNode.submit();">Egyedi 
+  lek&eacute;rdez&eacute;sek</a> 
+</form>
+
+<form name="input" action="../RegistrationServlet" method="put">
+    <input type="hidden" id="command1"  name="command" value="">
+
+  <input type="hidden" name="withDetailing" value="true">
+  <a href="#" onClick="document.getElementById('command1').value='listAllModels';this.parentNode.submit();">&Ouml;sszes 
+  benevezett makett list&aacute;z&aacute;sa (r&eacute;szletes)</a> - <a href="#" onClick="document.getElementById('command1').value='listCategories';this.parentNode.submit();"><strong>&Ouml;sszes 
+  kateg&oacute;ria list&aacute;z&aacute;sa</strong></a> - <a href="#" onClick="document.getElementById('command1').value='listUsers';this.parentNode.submit();">&Ouml;sszes 
+  felhaszn&aacute;l&oacute; list&aacute;z&aacute;sa</a> 
+</form>
+
+<form name="input" action="../RegistrationServlet" method="put">
+  <p><em><strong>Nyomtat&aacute;s...</strong></em> </p>
+  <input type="hidden" id="command2"  name="command" value="">
+  <input type="hidden" name="printPreRegisteredModels" value="true">
+  <a href="#" onClick="document.getElementById('command2').value='printAllModels';this.parentNode.submit();">Nevez&eacute;si  lapok nyomtat&aacute;sa (El&ouml;nevezettek)</a>
+</form>
+
+<form name="input" action="../RegistrationServlet" method="put">
+  <p></p>
+    <input type="hidden" id="command3"  name="command" value="">
+    <input type="hidden" name="printPreRegisteredModels" value="false">
+<!--
+    <a href="#" onClick="document.getElementById('command3').value='printAllModels';this.parentNode.submit();">Nevez&eacute;si 
+    lapok nyomtat&aacute;sa (Helysz&iacute;nen nevezettek)</a> - 
+-->
+
+<a href="#" onClick="document.getElementById('command3').value='printCardsForAllModels';this.parentNode.submit();">A 
+    makettek mell&eacute; kisk&aacute;rty&aacute;k nyomtat&aacute;sa</a> 
+  <p><em><strong>Verseny eredm&eacute;nyek... </strong></em> </p>
+  <p> </p>
+
+<a href="#" onClick="document.getElementById('command3').value='getawardedModelsPage';this.parentNode.submit();">D&iacute;jazott makettek megad&aacute;sa, nyomtat&aacute;s, prezent&aacute;ci&oacute; k&eacute;sz&iacute;t&eacute;s</a> 
+  <p> </p>
+
+
+</body></html>

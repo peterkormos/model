@@ -1,0 +1,158 @@
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+
+<script type="text/javascript">
+// <!--
+	var columnLabels = ["__LASTNAMELABEL__", "__FIRSTNAMELABEL__", "__YEAROFBIRTHLABEL__",  "__MODEL_SCALE__", "__MODEL_NAME__",  "__MODEL_PRODUCER__", "__CATEGORY_CODE__", "__GLUED_TO_BASE__", "__COUNTRYLABEL__", "__EMAILLABEL__"]
+	var columnNames =  ["lastname",          "firstname",          "__YEAROFBIRTHS__",      "__MODELSCALES__", "modelname",       "__MODELPRODUCERS__", "__CATEGORIES__",    "__GLUEDTOBASES__",  "__COUNTRIES__",    "__EMAIL__"]
+	var sizes =        ["14",                "14",                 "0",                     "0",               "0",               "0",                  "0",                 "0",                 "0",                "14" ]
+	var mandatory =    ["Y",                 "Y",                  "N",                     "N",               "Y",               "N",                  "Y",                 "N",                 "N",                "N" ]
+
+function emailChanged()
+{
+	if(document.getElementById('email').value != '')
+		for (var i=1; i<=document.input.rows.value; i++)
+		{
+			document.getElementById('email'+i).value = document.getElementById('email').value;
+//			alert(document.getElementById('email').value);
+		}
+}
+
+function hideTemplates()
+{
+	document.input.yearofbirth.style.visibility = 'hidden'
+	document.getElementById('producers').style.visibility = 'hidden'
+	document.getElementById('scales').style.visibility = 'hidden'
+	document.input.country.style.visibility = 'hidden'
+	document.getElementById('categories').style.visibility = 'hidden'
+}
+
+
+function getheader()
+{
+	document.write("<tr>");
+
+	for (var i=0; i<columnLabels.length; i++)
+		document.write("<th align='center' style='white-space: nowrap'>" + columnLabels[i] + "</th>");
+
+	document.write("</tr>");
+}
+
+function addRow()
+{
+	var mytable = document.getElementById('tableID')
+	var newRow = mytable.insertRow(-1);
+	document.input.rows.value = parseInt(document.input.rows.value) + 1;
+//	newRow.id="rowID";
+
+//alert(mytable.rows[0].cells.length)
+	for (var i=0; i<columnLabels.length; i++)
+	{
+		if(columnNames[i] == '__GLUEDTOBASES__')
+		{
+			newRow.insertCell(-1).innerHTML="__YES__ <input name='gluedToBase" + document.input.rows.value + "' type='radio' value='on' >" + 
+											"<br>" +
+											" __NO__ <input name='gluedToBase" + document.input.rows.value + "' type='radio' value='off' checked='checked'>"
+		}
+		else if(columnNames[i] == '__CATEGORIES__')
+		{
+		
+			var newCat = document.getElementById('categories').cloneNode(true);
+			newCat.style.visibility = 'visible'
+			newCat.id += document.input.rows.value;
+			newCat.getElementsByTagName("select")[0].setAttribute("name", newCat.getElementsByTagName("select")[0].getAttribute("name")+document.input.rows.value);
+			
+			newRow.insertCell(-1).appendChild(newCat)
+//			newRow.replaceChild(newCat, newRow.insertCell(-1))
+		}
+		else if(columnNames[i] == '__YEAROFBIRTHS__')
+		{
+			var newCat = document.getElementById('yearofbirth').cloneNode(true);
+			newCat.style.visibility = 'visible'
+			newCat.setAttribute("name", 'yearofbirth'+document.input.rows.value);
+			newRow.insertCell(-1).appendChild(newCat)
+//			newRow.replaceChild(newCat, newRow.insertCell(-1))
+		}
+		else if(columnNames[i] == '__MODELPRODUCERS__')
+		{
+			var newCat = document.getElementById('producers').cloneNode(true);
+			newCat.style.visibility = 'visible'
+			newCat.id += document.input.rows.value;
+			newCat.getElementsByTagName("input")[0].setAttribute("name", newCat.getElementsByTagName("input")[0].getAttribute("name")+document.input.rows.value);
+			
+			newRow.insertCell(-1).appendChild(newCat)
+//			newRow.replaceChild(newCat, newRow.insertCell(-1))
+//			alert(newCat.getElementsByTagName("input")[0].getAttribute("name"))
+		}
+		else if(columnNames[i] == '__MODELSCALES__')
+		{
+			var newCat = document.getElementById('scales').cloneNode(true);
+			newCat.style.visibility = 'visible'
+			newCat.id += document.input.rows.value;
+			newCat.getElementsByTagName("input")[0].setAttribute("name", newCat.getElementsByTagName("input")[0].getAttribute("name")+document.input.rows.value);
+			
+			newRow.insertCell(-1).appendChild(newCat)
+//			newRow.replaceChild(newCat, newRow.insertCell(-1))
+		}
+		else if(columnNames[i] == '__COUNTRIES__')
+		{
+			var newCat = document.getElementById('country').cloneNode(true);
+			newCat.style.visibility = 'visible'
+			newCat.setAttribute("name", 'country'+document.input.rows.value);
+			newRow.insertCell(-1).appendChild(newCat)
+//			newRow.replaceChild(newCat, newRow.insertCell(-1))
+		}
+		else if(columnNames[i] == '__EMAIL__')
+		{
+			var newCat = document.getElementById('email').cloneNode(true);
+			newCat.id += document.input.rows.value;
+			newCat.setAttribute("name", 'email'+document.input.rows.value);
+			newRow.insertCell(-1).appendChild(newCat)
+//			newRow.replaceChild(newCat, newRow.insertCell(-1))
+		}
+		else
+			newRow.insertCell(-1).innerHTML="<input type='text' name='" + columnNames[i] + document.input.rows.value + "' size='" + sizes[i] + "'>" 
+			+
+			(mandatory[i]=='Y' ? "<font color='#FF0000' size='+3'>&#8226;</font> " : "")
+	}
+}
+//-->
+</script>
+<form accept-charset="UTF-8" name="input" method="put" action="RegistrationServlet">
+    
+  <p>__CATEGORIES_LIST__ __YEAROFBIRTHS_LIST__ __MODELSCALES_LIST__ __MODELPRODUCERS_LIST__ 
+    __COUNTRIES_LIST__ 
+    <script>
+// <!--
+	hideTemplates()
+//-->
+</script>
+    <input type="hidden" name="language" value="__LANGUAGE__" >
+    <input type="hidden" name="rows" value="0" >
+    <input type='hidden' name='command' value='batchAddModel'>
+  </p>
+  <p>__EMAILLABEL__: 
+    <input name="email" type="text" id='email' onChange="emailChanged()" value='-'>
+  </p>
+  <p>&nbsp; </p>
+  <table width="100%" border="1" id="tableID" >
+<script>
+// <!--
+	getheader()
+	addRow()
+//-->
+</script>
+</table>
+  <p>
+    <input type="button" name="newRow" value="__ADDNEWROW__" onClick="addRow()">
+  </p>
+  <p> 
+    <input type="submit" name="Submit" value="__ADD__" onClick="emailChanged()">
+    <font color="#FF0000" size="+3">&#8226;</font>  __MANDATORYFIELDS__</p>
+  <p>
+    </form>
+	
+<form name="logout" method="put" action="helyi.html">
+    <input type="submit" name="submit" value="__LOGOUT__">
+</form>

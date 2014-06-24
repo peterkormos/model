@@ -1,0 +1,28 @@
+<body><html>
+<link href="css/base.css" rel="stylesheet" type="text/css"/>
+<div class="header"></div>
+
+<p><a href="jsp/login.jsp?language=HU"><b>F&ocirc;oldali bejelentkez&eacute;s</b></a> </p>
+<p>&nbsp;</p>
+<p><a href="jsp/user.jsp?directRegister=true&action=directRegister&language=HU">1 ember 
+  makettjeinek nevez&eacute;se</a> </p>
+<p><a href="RegistrationServlet?command=getbatchAddModelPage&language=HU">T&ouml;bb 
+  ember makettjeinek nevez&eacute;se</a></p>
+<p>
+<form name="input" action="RegistrationServlet" method="put">
+  <input type="hidden" name="command" value="inputForLoginUser">
+  <input type="hidden" name="language" value="HU">
+    
+  <input name="inputForLoginUser" type="submit" value="1 makettez&ouml; nev&eacute;ben bel&eacute;p&eacute;s">
+</form>
+
+<form name="input" action="RegistrationServlet" method="put">
+  <input type="hidden" name="command" value="inputForPrint">
+  <input type="hidden" name="language" value="HU">
+    
+  <input name="inputForPrint" type="submit" value="1 makettez&ouml; makettjeinek a nevez&eacute;si lapjainak nyomtat&aacute;sa">
+</form>
+
+<p>&nbsp; </p>
+<p>&nbsp;</p>
+</body></html>

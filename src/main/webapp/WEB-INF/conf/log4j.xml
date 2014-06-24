@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/" debug="false">
+
+  <appender name="ASYNC_RegistrationServlet" class="org.apache.log4j.AsyncAppender">
+    <appender-ref ref="FILE_RegistrationServlet"/>
+  </appender>
+
+  <appender name="FILE_RegistrationServlet" class="org.apache.log4j.RollingFileAppender">
+    <param name="File" value="RegistrationServlet.log"/>
+    <param name="MaxFileSize" value="100MB"/>
+    <param name="MaxBackupIndex" value="5"/>
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="[%d{ISO8601}] - %m%n" />
+    </layout>
+  </appender>
+
+
+  <logger name="servlet.RegistrationServlet">
+        <level value="TRACE" />
+    <appender-ref ref="ASYNC_RegistrationServlet"/>
+  </logger>
+    
+</log4j:configuration>

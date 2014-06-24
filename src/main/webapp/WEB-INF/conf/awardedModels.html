@@ -1,0 +1,118 @@
+<script type="text/javascript">
+// <!--
+
+function sendRequest(model)
+{
+	var url = "RegistrationServlet?command=getModelInfo&";
+	var req = false;
+
+	if (window.XMLHttpRequest) 
+	{ // Mozilla, Safari,...
+   		req = new XMLHttpRequest();
+
+	if (req.overrideMimeType)
+    	req.overrideMimeType('text/xml');
+  	} 
+	else if (window.ActiveXObject) 
+	{ // IE
+   		try 
+		{
+		    req = new ActiveXObject("Msxml2.XMLHTTP");
+		} catch (e) 
+		{
+      		try 
+			{
+       			req = new ActiveXObject("Microsoft.XMLHTTP");
+      		} catch (e) 
+			{}
+     	}
+   }
+   
+	req.open("GET", url + "modelID=" + model.value, true);
+	req.onreadystatechange= function()
+	{   
+		if (req.readyState == 4)
+			document.getElementById('infoID' + model.id).innerHTML = req.responseText;
+	}
+
+	req.send(null);
+}
+
+function addRow()
+{
+	var mytable = document.getElementById('tableID')
+	var newRow = mytable.insertRow(-1);
+	document.input.rows.value = parseInt(document.input.rows.value) + 1;
+
+	newRow.insertCell(-1).innerHTML="__MODELID__: ";
+
+	var newCat = document.getElementById('modelID').cloneNode(true);
+	newCat.style.visibility = 'visible'
+	newCat.id = document.input.rows.value;
+	newCat.setAttribute("name", newCat.getAttribute("name")+document.input.rows.value);		
+	newRow.insertCell(-1).appendChild(newCat);
+
+	newRow.insertCell(-1).innerHTML="__AWARD__: ";
+
+	newCat = document.getElementById('award').cloneNode(true);
+	newCat.style.visibility = 'visible'
+	newCat.id += document.input.rows.value;
+	newCat.setAttribute("name", newCat.getAttribute("name")+document.input.rows.value);		
+	newRow.insertCell(-1).appendChild(newCat);
+
+	newCat = document.getElementById('infoID').cloneNode(true);
+	newCat.id += document.input.rows.value;
+	newCat.setAttribute("name", newCat.getAttribute("name")+document.input.rows.value);		
+	newRow.insertCell(-1).appendChild(newCat);
+}
+
+//-->
+</script>
+
+<form name="input" method="put" action="RegistrationServlet">
+    <input type="hidden" name="language" value="__LANGUAGE__" >
+    <input type="hidden" name="rows" value="0" >
+    <input type='hidden' name='command' value='-'>
+
+    <input type="text" id='modelID' name='modelID' style='visibility:hidden' onChange="sendRequest(parentNode.getElementsByTagName('input')[0]);">
+
+    <p id="infoID" name="infoID"></p>
+
+  <select name="award" id='award' style='visibility:hidden'>
+    <option>Arany</option>
+    <option>Ez&uuml;st</option>
+    <option>Bronz</option>
+    <option>1.</option>
+    <option>2.</option>
+    <option>3.</option>
+    <option>4.</option>
+    <option>5.</option>
+    <option>6.</option>
+    <option>7.</option>
+    <option>8.</option>
+    <option>9.</option>
+    <option>10.</option>
+    <option>K&uuml;l&ouml;nd&iacute;j</option>
+  </select>
+
+<table border="1" id="tableID" >
+<script type="text/javascript">
+	document.input.rows.value = 0;
+	
+	for(var i = 0; i < 20 ; i++)
+		addRow();
+</script>
+</table>
+
+    
+  <p>
+    <input type="button" name="newRow" value="__ADDNEWROW__" onClick="addRow()">
+  </p>
+  <p> 
+    <input type="submit" name="listAwardedModels" value="__SELECT__" onClick="document.input.command.value='listAwardedModels'">
+    <input type="submit" name="printAwardedModels" value="__PRINT__" onClick="document.input.command.value='printAwardedModels'">
+    <input type="submit" name="getPresentationPage" value="__PRESENTATION__" onClick="document.input.command.value='getPresentationPage'">
+    <input type="submit" name="addAwardedModels" value="__SAVE__" onClick="document.input.command.value='addAwardedModels'">
+  </p>
+  </form>
+<p>&nbsp;</p>
