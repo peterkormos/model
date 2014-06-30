@@ -4,7 +4,7 @@
 <%@page import="servlet.*"%>
 
 <%
-	RegistrationServlet servlet = RegistrationServlet.getInstance();
+	RegistrationServlet servlet = RegistrationServlet.getInstance(config);
 	User user = servlet.getUser(request);
 
 	if (user.language.length() != 2)

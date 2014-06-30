@@ -10,7 +10,7 @@
 	boolean mandatory = Boolean.parseBoolean(request.getParameter("mandatory"));
 
 	final String show = (String) request.getSession().getAttribute("show");
-	RegistrationServlet servlet = RegistrationServlet.getInstance();
+	RegistrationServlet servlet = RegistrationServlet.getInstance(config);
 	ServletDAO servletDAO = servlet.getServletDAO();
 	
 %>

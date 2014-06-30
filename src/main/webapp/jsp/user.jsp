@@ -8,7 +8,7 @@
  	boolean directRegister = Boolean.parseBoolean(request.getParameter("directRegister"));
  	String action = request.getParameter("action");
  		
-	RegistrationServlet servlet = RegistrationServlet.getInstance();
+	RegistrationServlet servlet = RegistrationServlet.getInstance(config);
  		
 	String languageCode = null;
 	User user = null;

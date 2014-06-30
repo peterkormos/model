@@ -4,7 +4,7 @@
 <%@page import="java.util.*"%>
 
 <%
-	RegistrationServlet servlet = RegistrationServlet.getInstance();
+	RegistrationServlet servlet = RegistrationServlet.getInstance(config);
 	final String languageCode = servlet.getRequestAttribute(request, "language");
 	ResourceBundle language = servlet.getLanguage(languageCode);
 %>

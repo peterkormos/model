@@ -5,7 +5,7 @@
 
 <%
 	User user = RegistrationServlet.getUser(request);	
-	RegistrationServlet servlet = RegistrationServlet.getInstance();
+	RegistrationServlet servlet = RegistrationServlet.getInstance(config);
 	final ResourceBundle language = servlet.getLanguage(user.language);
 %>
 

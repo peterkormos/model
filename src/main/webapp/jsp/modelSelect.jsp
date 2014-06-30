@@ -6,7 +6,7 @@
 <form name='input' action='../RegistrationServlet' method='put'>
 <input type='hidden' name='command' value='<%= request.getParameter("action") %>'>
 <%
-	RegistrationServlet servlet = RegistrationServlet.getInstance();
+	RegistrationServlet servlet = RegistrationServlet.getInstance(config);
 	User user = servlet.getUser(request);
 
 	for (final Model model : servlet.getServletDAO().getModels(user.userID))

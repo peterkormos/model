@@ -8,8 +8,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.channels.UnresolvedAddressException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -29,11 +31,16 @@ import java.util.ResourceBundle;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import javax.mail.BodyPart;
 import javax.mail.Message;
+import javax.mail.Multipart;
+import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -58,14 +65,10 @@ import datatype.User;
 
 public class RegistrationServlet extends HttpServlet
 {
-  public String VERSION = "2014.04.08.";
+  public String VERSION = "2014.06.30.";
   public static Logger logger = Logger.getLogger(RegistrationServlet.class);
 
-  private String smtpServer;
-  private String emailFrom;
-  private boolean debugSMTP;
-
-  Map<String, ResourceBundle> languages; // key: HU, EN, ...
+  Map<String, ResourceBundle> languages= new HashMap<String, ResourceBundle>(); // key: HU, EN, ...
 
   public static ServletDAO servletDAO;
   StringBuffer printBuffer;
@@ -79,7 +82,7 @@ public class RegistrationServlet extends HttpServlet
   private boolean onSiteUse;
   private String systemMessage = "";
 
-  private List<ExceptionData> exceptionHistory;
+  private List<ExceptionData> exceptionHistory = new LinkedList<ExceptionData>();
 
   private static RegistrationServlet instance;
 
@@ -90,42 +93,41 @@ public class RegistrationServlet extends HttpServlet
   public RegistrationServlet() throws Exception
   {
 	instance = this;
+  }
 
+  @Override
+  public void init(final ServletConfig config) throws UnavailableException, ServletException
+  {
 	try
 	{
-	  String baseDir = getClass().getClassLoader().getResource("/").getFile() + "../conf/";
-	  DOMConfigurator.configure(baseDir + "log4j.xml");
+	  System.out.println("config.getServletContext().getResource(): " + config.getServletContext().getResource("/WEB-INF/conf/log4j.xml"));
+	  
+	  DOMConfigurator.configure(config.getServletContext().getResource("/WEB-INF/conf/log4j.xml"));
 
-	  servletConfig.load(new FileInputStream(baseDir + "servlet.ini"));
+	  servletConfig.load(config.getServletContext().getResourceAsStream("/WEB-INF/conf/servlet.ini"));
 
 	  logger.fatal("************************ Logging restarted ************************");
 	  System.out.println("VERSION: " + VERSION);
 	  logger.fatal("VERSION: " + VERSION);
 
-	  DriverManager.registerDriver((Driver) Class.forName(getServerConfigParamter("DB_Driver")).newInstance());
+	  DriverManager.registerDriver((Driver) Class.forName(getServerConfigParamter("db.driver")).newInstance());
 
 	  if (servletDAO == null)
 	  {
-		final Connection dbConnection = DriverManager.getConnection(getServerConfigParamter("DB_URL"),
-		    getServerConfigParamter("DB_Username"), getServerConfigParamter("DB_Password"));
+		final Connection dbConnection = DriverManager.getConnection(getServerConfigParamter("db.url"),
+		    getServerConfigParamter("db.username"), getServerConfigParamter("db.password"));
 		dbConnection.setAutoCommit(true);
 		servletDAO = new ServletDAO(this, dbConnection);
 	  }
 
-	  this.smtpServer = getServerConfigParamter("smtpServer");
-	  this.debugSMTP = Boolean.parseBoolean(getServerConfigParamter("debugSMTP"));
-	  this.emailFrom = getServerConfigParamter("emailFrom");
 
-	  languages = new HashMap<String, ResourceBundle>();
+	  printBuffer = loadFile(config.getServletContext().getResourceAsStream("/WEB-INF/conf/print.html"));
+	  printCardBuffer = loadFile(config.getServletContext().getResourceAsStream("/WEB-INF/conf/printCard.html"));
+	  batchAddModelBuffer = loadFile(config.getServletContext().getResourceAsStream("/WEB-INF/conf/batchAddModel.html"));
+	  awardedModelsBuffer = loadFile(config.getServletContext().getResourceAsStream("/WEB-INF/conf/awardedModels.html"));
+	  cerificateOfMeritBuffer = loadFile(config.getServletContext().getResourceAsStream("/WEB-INF/conf/cerificateOfMerit.html"));
+	  presentationBuffer = loadFile(config.getServletContext().getResourceAsStream("/WEB-INF/conf/presentation.html"));
 
-	  printBuffer = loadFile(baseDir + "print.html");
-	  printCardBuffer = loadFile(baseDir + "printCard.html");
-	  batchAddModelBuffer = loadFile(baseDir + "batchAddModel.html");
-	  awardedModelsBuffer = loadFile(baseDir + "awardedModels.html");
-	  cerificateOfMeritBuffer = loadFile(baseDir + "cerificateOfMerit.html");
-	  presentationBuffer = loadFile(baseDir + "presentation.html");
-
-	  exceptionHistory = new LinkedList<ExceptionData>();
 
 	  System.out.println("OK.....");
 	}
@@ -139,28 +141,24 @@ public class RegistrationServlet extends HttpServlet
 	  {
 		e.printStackTrace();
 	  }
-	  throw e;
+	  throw new ServletException(e);
 	}
   }
 
-  public static RegistrationServlet getInstance() throws Exception
+  public static RegistrationServlet getInstance(ServletConfig config) throws Exception
   {
 	if (instance == null)
 	{
 	  instance = new RegistrationServlet();
+	  instance.init(config);
 	}
 
 	return instance;
   }
 
-  @Override
-  public void init(final ServletConfig config) throws UnavailableException, ServletException
+  private StringBuffer loadFile(final InputStream file) throws FileNotFoundException, IOException
   {
-  }
-
-  private StringBuffer loadFile(final String file) throws FileNotFoundException, IOException
-  {
-	final BufferedReader br = new BufferedReader(new FileReader(file));
+	final BufferedReader br = new BufferedReader(new InputStreamReader(file));
 	final StringBuffer buffer = new StringBuffer();
 
 	String line = null;
@@ -181,7 +179,7 @@ public class RegistrationServlet extends HttpServlet
 
 	if (value == null)
 	{
-	  throw new Exception("parameter: " + parameter + " not found in web.xml");
+	  throw new Exception("parameter: " + parameter + " not found in servletConfig");
 	}
 
 	if (logger != null)
@@ -953,7 +951,9 @@ public class RegistrationServlet extends HttpServlet
 
 	message.append("</body></html>");
 
-	sendMessage(user.email, language.getString("email.subject"), message.toString());
+	sendMessage(getServerConfigParamter("email.smtpServer"), getServerConfigParamter("email.from"), user.email,
+	    language.getString("email.subject"), message.toString(),
+	    Boolean.parseBoolean(getServerConfigParamter("email.debugSMTP")), getServerConfigParamter("email.password"));
   }
 
   public void process_addCategoryRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
@@ -2070,46 +2070,64 @@ public class RegistrationServlet extends HttpServlet
 	return buff;
   }
 
-  public void sendMessage(final String to, final String subject, final String message) throws Exception
+  public static void sendMessage(String smtpServer, final String from, String to, String subject, String htmlMessage,
+	  boolean debugSMTP, final String password) throws Exception
   {
+	if (from == null)
+	  throw new Exception("!!! Utils.sendMessage(): FROM address is null!");
 
-	// create some properties and get the default Session
-	final Properties props = new Properties();
-	props.put("mail.smtp.host", smtpServer);
-	props.put("mail.debug", debugSMTP);
-
-	if (emailFrom == null)
-	{
-	  throw new Exception("!!! SendMail.sendMessage: FROM address is null!");
-	}
-
-	if (emailFrom.indexOf("@") == -1)
-	{
-	  throw new Exception("!!! SendMail.sendMessage: invalid FROM e-mail address: " + emailFrom);
-	}
+	if (from.indexOf("@") == -1)
+	  throw new Exception("!!! Utils.sendMessage(): invalid FROM e-mail address: " + from);
 
 	if (to == null)
+	  throw new Exception("!!! Utils.sendMessage(): TO address is null !");
+
+	if (to.indexOf("@") == -1)
+	  throw new Exception("!!! Utils.sendMessage(): invalid TO e-mail address: " + to);
+
+	Properties props = new Properties();
+	props.put("mail.smtp.host", smtpServer);
+	props.put("mail.debug", debugSMTP);
+	props.put("mail.smtp.socketFactory.port", "465");
+	props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+	props.put("mail.smtp.auth", "true");
+	props.put("mail.smtp.port", "465");
+
+	Session session = Session.getDefaultInstance(props, new javax.mail.Authenticator()
 	{
-	  throw new Exception("!!! SendMail.sendMessage: TO address is null !");
-	}
+	  protected PasswordAuthentication getPasswordAuthentication()
+	  {
+		return new PasswordAuthentication(from, password);
+	  }
+	});
 
-	final Session session = Session.getDefaultInstance(props, null);
-	session.setDebug(debugSMTP);
+	Message message = new MimeMessage(session);
+	message.setFrom(new InternetAddress(from));
+	message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
+	message.setSubject(subject);
 
-	// create a message
-	final Message msg = new MimeMessage(session);
-	msg.setFrom(new InternetAddress(emailFrom));
+	// Create a multi-part to combine the parts
+	Multipart multipart = new MimeMultipart("alternative");
 
-	final InternetAddress[] address = new InternetAddress[] { new InternetAddress(to) };
+	// Create your text message part
+	BodyPart messageBodyPart = new MimeBodyPart();
+	messageBodyPart
+	    .setText("Ha ezt latod, akkor a levelezod nem jol jeleniti meg az emailt. Kerlek valaszolj a feladonak a hibaval kapcsolatban.");
 
-	msg.setRecipients(Message.RecipientType.TO, address);
-	msg.setSubject(subject);
-	msg.setSentDate(new Date());
-	// If the desired charset is known, you can use setText(text, charset)
-	msg.setText(message);
-	msg.setHeader("Content-Type", "text/html");
+	// Add the text part to the multipart
+	multipart.addBodyPart(messageBodyPart);
 
-	Transport.send(msg);
+	// Create the html part
+	messageBodyPart = new MimeBodyPart();
+	messageBodyPart.setContent(htmlMessage, "text/html");
+
+	// Add html part to multi part
+	multipart.addBodyPart(messageBodyPart);
+
+	// Associate multi-part with message
+	message.setContent(multipart);
+
+	Transport.send(message);
   }
 
   public void process_sendEmailRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
