@@ -100,8 +100,6 @@ public class RegistrationServlet extends HttpServlet
   {
 	try
 	{
-	  System.out.println("config.getServletContext().getResource(): " + config.getServletContext().getResource("/WEB-INF/conf/log4j.xml"));
-	  
 	  DOMConfigurator.configure(config.getServletContext().getResource("/WEB-INF/conf/log4j.xml"));
 
 	  servletConfig.load(config.getServletContext().getResourceAsStream("/WEB-INF/conf/servlet.ini"));
