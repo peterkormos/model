@@ -1,0 +1,40 @@
+<html>
+<head>
+
+<script>
+function parseXML(xmlstring)
+{
+	alert("parseXML: " + xmlstring);
+}
+</script>
+
+<script src="ajax.js"></script>
+
+</head>
+<p>dasdlkdjas</p>
+<p>asldkjalsk</p>
+<p>asdl;kas; </p>
+<p>&nbsp; </p>
+<form name="form1" method="post" action="">
+  <input type='text' name="lastname" id="lastnameID"  onChange="sendRequest();" >
+  - 
+  <div id='lastnameDiv' style="border:1 px solid black;width:200 px;position:absolute">
+				
+				</div>
+				<p></p>
+				valami.....
+</form>
+			
+			<script>
+			
+//			alert(document.getElementById('title').offsetLeft);
+//			alert(document.getElementById('title').offsetTop);
+
+			var lastNameList = document.getElementById('lastnameDiv');
+			var lastNameInput = document.getElementById('lastnameID');
+			
+			lastNameList.style.left = lastNameInput.offsetLeft + lastNameInput.offsetWidth + 5;
+			lastNameList.style.top = lastNameInput.offsetTop;
+			lastNameList.innerHTML="teszt<p>tesztteszt<p>teszt<p>teszt<p>teszt<p>teszt<p>";
+			</script>
+			</html>
