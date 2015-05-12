@@ -1,6 +1,8 @@
 package datatype;
 
-public class CategoryGroup
+import java.io.Serializable;
+
+public class CategoryGroup implements Serializable
 {
   public String show;
   public String name;

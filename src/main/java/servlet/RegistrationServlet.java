@@ -1,18 +1,17 @@
 package servlet;
 
-import java.beans.XMLDecoder;
+import java.awt.image.BufferedImage;
 import java.beans.XMLEncoder;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.channels.UnresolvedAddressException;
-import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -25,22 +24,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.MissingResourceException;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import javax.mail.BodyPart;
-import javax.mail.Message;
-import javax.mail.Multipart;
-import javax.mail.PasswordAuthentication;
-import javax.mail.Session;
-import javax.mail.Transport;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeBodyPart;
-import javax.mail.internet.MimeMessage;
-import javax.mail.internet.MimeMultipart;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -50,25 +40,27 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
-import org.apache.commons.fileupload.FileItemIterator;
-import org.apache.commons.fileupload.FileItemStream;
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
 
+import datatype.AgeGroup;
 import datatype.AwardedModel;
 import datatype.Category;
 import datatype.CategoryGroup;
 import datatype.Detailing;
 import datatype.Model;
+import datatype.ModelClass;
 import datatype.User;
 
 public class RegistrationServlet extends HttpServlet
 {
-  public String VERSION = "2014.07.31.";
+  public String VERSION = "2015.04.21.";
   public static Logger logger = Logger.getLogger(RegistrationServlet.class);
 
-  Map<String, ResourceBundle> languages= new HashMap<String, ResourceBundle>(); // key: HU, EN, ...
+  Map<String, ResourceBundle> languages = new HashMap<String, ResourceBundle>(); // key: HU, EN, ...
 
   public static ServletDAO servletDAO;
   StringBuffer printBuffer;
@@ -82,13 +74,16 @@ public class RegistrationServlet extends HttpServlet
   private boolean onSiteUse;
   private String systemMessage = "";
 
-  private List<ExceptionData> exceptionHistory = new LinkedList<ExceptionData>();
+  private final List<ExceptionData> exceptionHistory = new LinkedList<ExceptionData>();
 
   private static RegistrationServlet instance;
 
-  private static final String DIRECT_USER = "_LOCAL_";
-
   Properties servletConfig = new Properties();
+
+  public static enum Command
+  {
+	LOADIMAGE
+  };
 
   public RegistrationServlet() throws Exception
   {
@@ -112,12 +107,9 @@ public class RegistrationServlet extends HttpServlet
 
 	  if (servletDAO == null)
 	  {
-		final Connection dbConnection = DriverManager.getConnection(getServerConfigParamter("db.url"),
-		    getServerConfigParamter("db.username"), getServerConfigParamter("db.password"));
-		dbConnection.setAutoCommit(true);
-		servletDAO = new ServletDAO(this, dbConnection);
+		servletDAO = new ServletDAO(this, getServerConfigParamter("db.url"), getServerConfigParamter("db.username"),
+		    getServerConfigParamter("db.password"));
 	  }
-
 
 	  printBuffer = loadFile(config.getServletContext().getResourceAsStream("/WEB-INF/conf/print.html"));
 	  printCardBuffer = loadFile(config.getServletContext().getResourceAsStream("/WEB-INF/conf/printCard.html"));
@@ -126,6 +118,7 @@ public class RegistrationServlet extends HttpServlet
 	  cerificateOfMeritBuffer = loadFile(config.getServletContext().getResourceAsStream("/WEB-INF/conf/cerificateOfMerit.html"));
 	  presentationBuffer = loadFile(config.getServletContext().getResourceAsStream("/WEB-INF/conf/presentation.html"));
 
+	  updateSystemSettings();
 
 	  System.out.println("OK.....");
 	}
@@ -216,51 +209,6 @@ public class RegistrationServlet extends HttpServlet
 	}
   }
 
-  public static String getOptionalRequestAttribute(final HttpServletRequest req, final String name)
-  {
-	try
-	{
-	  final String value = getRequestAttribute(req, name, false);
-
-	  return "".equals(value) ? "-" : value;
-	}
-	catch (final Exception e)
-	{
-	  e.printStackTrace();
-	  return "-";
-	}
-  }
-
-  public String getRequestAttribute(final HttpServletRequest req, final String name) throws Exception
-  {
-	return getRequestAttribute(req, name, true);
-  }
-
-  public static String getRequestAttribute(final HttpServletRequest req, final String name, final boolean throwException)
-	  throws Exception
-  {
-	String value;
-	value = req.getParameter(name);
-	if (value == null || value.trim().length() == 0)
-	{
-	  if (throwException)
-	  {
-		throw new Exception(name + " is not set!");
-	  }
-	  else
-	  {
-		return "-";
-	  }
-	}
-
-	if (logger.isDebugEnabled())
-	{
-	  logger.debug("HTTP parameter: " + name + " value: " + value);
-	}
-
-	return value.trim();
-  }
-
   @Override
   public void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException
   {
@@ -276,7 +224,7 @@ public class RegistrationServlet extends HttpServlet
 
 	  if (request.getCharacterEncoding() == null)
 	  {
-		request.setCharacterEncoding("UTF-8");
+		request.setCharacterEncoding("ISO-8859-1");
 	  }
 
 	  if (ServletFileUpload.isMultipartContent(request))
@@ -285,22 +233,30 @@ public class RegistrationServlet extends HttpServlet
 		return;
 	  }
 
-	  final String command = getRequestAttribute(request, "command");
-
-	  getClass().getMethod("process_" + command + "Request", new Class[] { HttpServletRequest.class, HttpServletResponse.class })
-		  .invoke(this, new Object[] { request, response });
-
-	  String email = null;
-	  try
+	  final String pathInfo = request.getPathInfo();
+	  String command = null;
+	  if (pathInfo != null)
 	  {
-		email = getUser(request).email;
+		command = processRestfulRequest(request, response, pathInfo.substring(1));
 	  }
-	  catch (final Exception e)
+	  else
 	  {
+		command = ServletUtil.getRequestAttribute(request, "command");
+		getClass().getMethod("process_" + command + "Request",
+		    new Class[] { HttpServletRequest.class, HttpServletResponse.class }).invoke(this, new Object[] { request, response });
 	  }
 
 	  if (logger.isTraceEnabled())
 	  {
+		String email = null;
+		try
+		{
+		  email = getUser(request).email;
+		}
+		catch (final Exception e)
+		{
+		}
+
 		logger.trace("doPost() request arrived from " + request.getRemoteAddr() + " email: " + email + " command: " + command
 		    + " processTime: " + (System.currentTimeMillis() - startTime));
 	  }
@@ -321,6 +277,41 @@ public class RegistrationServlet extends HttpServlet
 
 	  writeErrorResponse(response, "Server error: <b>" + message + "</b>");
 	}
+  }
+
+  private String processRestfulRequest(HttpServletRequest request, HttpServletResponse response, String pathInfo)
+	  throws Exception
+  {
+	if (pathInfo.indexOf('/') > -1)
+	{
+	  String[] splitText = pathInfo.split("/");
+	  String command = splitText[0];
+
+	  if (Command.LOADIMAGE.name().equals(command))
+	  {
+		response.setContentType("image/jpeg");
+
+		String params = splitText[1];
+		int modelId = Integer.parseInt(params.substring(params.indexOf("=") + 1));
+		try
+		{
+		  loadImage(modelId, response.getOutputStream());
+		}
+		catch (final Exception e)
+		{
+		}
+	  }
+	  return command;
+	}
+	else
+	{
+
+	  getClass()
+		  .getMethod("process_" + pathInfo + "Request", new Class[] { HttpServletRequest.class, HttpServletResponse.class })
+		  .invoke(this, new Object[] { request, response });
+	  return pathInfo;
+	}
+
   }
 
   private void writeErrorResponse(final HttpServletResponse response, final String message) throws IOException
@@ -350,7 +341,7 @@ public class RegistrationServlet extends HttpServlet
 
 	  if (param.startsWith("userID"))
 	  {
-		final int userID = Integer.parseInt(getRequestAttribute(request, param));
+		final int userID = Integer.parseInt(ServletUtil.getRequestAttribute(request, param));
 
 		loginSuccessful(request, response, servletDAO.getUser(userID));
 		return;
@@ -368,9 +359,9 @@ public class RegistrationServlet extends HttpServlet
 
 	  if (param.startsWith("userID"))
 	  {
-		final int userID = Integer.parseInt(getRequestAttribute(request, param));
+		final int userID = Integer.parseInt(ServletUtil.getRequestAttribute(request, param));
 
-		printModels(request, response, getLanguage(getRequestAttribute(request, "language")), userID);
+		printModels(request, response, getLanguage(ServletUtil.getRequestAttribute(request, "language")), userID);
 		showPrintDialog(response);
 		return;
 	  }
@@ -379,7 +370,7 @@ public class RegistrationServlet extends HttpServlet
 
   public void process_getModelInfoRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	final String modelID = getRequestAttribute(request, "modelID");
+	final String modelID = ServletUtil.getRequestAttribute(request, "modelID");
 
 	final Model model = servletDAO.getModel(Integer.parseInt(modelID));
 
@@ -397,7 +388,7 @@ public class RegistrationServlet extends HttpServlet
   public void process_getSimilarLastNamesRequest(final HttpServletRequest request, final HttpServletResponse response)
 	  throws Exception
   {
-	final String lastname = getRequestAttribute(request, "lastname");
+	final String lastname = ServletUtil.getRequestAttribute(request, "lastname");
 
 	final StringBuffer buff = new StringBuffer();
 
@@ -413,23 +404,21 @@ public class RegistrationServlet extends HttpServlet
 
   public void process_loginRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	updateSystemSettings();
-
-	final String email = getRequestAttribute(request, "email");
-	final ResourceBundle language = getLanguage(getRequestAttribute(request, "language"));
+	final String email = ServletUtil.getRequestAttribute(request, "email");
+	final ResourceBundle language = getLanguage(ServletUtil.getRequestAttribute(request, "language"));
 
 	try
 	{
 	  final User user = servletDAO.getUser(email);
 
-	  if (user.password.equals(servletDAO.encodeString(getRequestAttribute(request, "password"))) && user.enabled)
+	  if (user.password.equals(servletDAO.encodeString(ServletUtil.getRequestAttribute(request, "password"))) && user.enabled)
 	  {
 		loginSuccessful(request, response, user);
 	  }
 	  else
 	  {
 		logger.info("process_loginRequest(): Authentication failed. email: " + email + " user.password: [" + user.password
-		    + "] HTTP password: [" + getRequestAttribute(request, "password") + "] user.enabled: " + user.enabled);
+		    + "] HTTP password: [" + ServletUtil.getRequestAttribute(request, "password") + "] user.enabled: " + user.enabled);
 
 		writeErrorResponse(response, language.getString("authentication.failed") + " " + language.getString("email") + ": ["
 		    + email + "]");
@@ -452,7 +441,7 @@ public class RegistrationServlet extends HttpServlet
 
 	try
 	{
-	  show = servletDAO.encodeString(getRequestAttribute(request, "show"));
+	  show = servletDAO.encodeString(ServletUtil.getRequestAttribute(request, "show"));
 	}
 	catch (final Exception e)
 	{
@@ -464,14 +453,17 @@ public class RegistrationServlet extends HttpServlet
 
 	final HttpSession session = request.getSession(true);
 	session.setAttribute("userID", user);
-	session.setAttribute("show", show);
+	if (show != null)
+	{
+	  session.setAttribute("show", show);
+	}
 
 	response.sendRedirect("jsp/main.jsp");
   }
 
   public void process_sqlRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	final StringBuffer buff = servletDAO.execute(getRequestAttribute(request, "sql"));
+	final StringBuffer buff = servletDAO.execute(ServletUtil.getRequestAttribute(request, "sql"));
 
 	if (buff == null)
 	{
@@ -490,7 +482,7 @@ public class RegistrationServlet extends HttpServlet
 
   final HttpServletResponse response) throws Exception
   {
-	final User user = servletDAO.getUser(getRequestAttribute(request, "email"));
+	final User user = servletDAO.getUser(ServletUtil.getRequestAttribute(request, "email"));
 	sendEmail(user, true);
 
 	final ResourceBundle language = getLanguage(user.language);
@@ -500,17 +492,17 @@ public class RegistrationServlet extends HttpServlet
 
 	buff.append(language.getString("email.was.sent"));
 	buff.append("<p>");
-	buff.append("<a href='index.html'>" + language.getString("proceed.to.login") + "</a></body></html>");
+	buff.append("<a href='../index.html'>" + language.getString("proceed.to.login") + "</a></body></html>");
 
 	writeResponse(response, buff);
   }
 
   public void process_batchAddModelRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	final String languageCode = getRequestAttribute(request, "language");
+	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
 	final ResourceBundle language = getLanguage(languageCode);
 
-	final int rows = Integer.parseInt(getRequestAttribute(request, "rows"));
+	final int rows = Integer.parseInt(ServletUtil.getRequestAttribute(request, "rows"));
 
 	final List<Model> models = new LinkedList<Model>();
 	final List<User> users = new LinkedList<User>();
@@ -519,22 +511,22 @@ public class RegistrationServlet extends HttpServlet
 	{
 	  final String httpParameterPostTag = String.valueOf(i);
 
-	  if (getRequestAttribute(request, "firstname" + httpParameterPostTag).trim().length() == 0)
+	  if (ServletUtil.getRequestAttribute(request, "firstname" + httpParameterPostTag).trim().length() == 0)
 	  {
 		continue;
 	  }
 
-	  if (getRequestAttribute(request, "lastname" + httpParameterPostTag).trim().length() == 0)
+	  if (ServletUtil.getRequestAttribute(request, "lastname" + httpParameterPostTag).trim().length() == 0)
 	  {
 		continue;
 	  }
 
 	  // register model for new user...
 	  if (i == 1
-		  || !(getRequestAttribute(request, "firstname" + httpParameterPostTag) + getRequestAttribute(request, "lastname"
-		      + httpParameterPostTag))
-		      .equals((getRequestAttribute(request, "firstname" + String.valueOf(i - 1)) + getRequestAttribute(request,
-		          "lastname" + String.valueOf(i - 1)))))
+		  || !(ServletUtil.getRequestAttribute(request, "firstname" + httpParameterPostTag) + ServletUtil.getRequestAttribute(
+		      request, "lastname" + httpParameterPostTag))
+		      .equals((ServletUtil.getRequestAttribute(request, "firstname" + String.valueOf(i - 1)) + ServletUtil
+		          .getRequestAttribute(request, "lastname" + String.valueOf(i - 1)))))
 	  {
 		if (user != null && user.email != null && i > 1)
 		{
@@ -576,7 +568,7 @@ public class RegistrationServlet extends HttpServlet
 	  throws Exception
   {
 	// set language library
-	final String languageCode = getRequestAttribute(request, "language");
+	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
 	final ResourceBundle language = getLanguage(languageCode);
 
 	final User user = directRegisterUser(request, language, "");
@@ -584,7 +576,7 @@ public class RegistrationServlet extends HttpServlet
 	final HttpSession session = request.getSession(true);
 	session.setAttribute("userID", user);
 
-	response.sendRedirect("jsp/main.jsp");
+	response.sendRedirect("../jsp/main.jsp");
   }
 
   public void process_exportDataRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
@@ -596,9 +588,14 @@ public class RegistrationServlet extends HttpServlet
 	data.add(servletDAO.getCategoryList(null));
 	data.add(servletDAO.getModels(ServletDAO.INVALID_USERID));
 
+	if ("yes".equals(ServletUtil.getOptionalRequestAttribute(request, "photos")))
+	{
+	  data.add(servletDAO.getPhotos());
+	}
+
 	response.setContentType("application/zip");
-	final XMLEncoder e = new XMLEncoder(new GZIPOutputStream(response.getOutputStream()));
-	e.writeObject(data);
+	final GZIPOutputStream e = new GZIPOutputStream(response.getOutputStream());
+	e.write(Serialization.serialize(data));
 	e.close();
   }
 
@@ -625,73 +622,135 @@ public class RegistrationServlet extends HttpServlet
 	data.add(new LinkedList<Model>());
 
 	response.setContentType("application/zip");
-	final XMLEncoder e = new XMLEncoder(new GZIPOutputStream(response.getOutputStream()));
-	e.writeObject(data);
+	final GZIPOutputStream e = new GZIPOutputStream(response.getOutputStream());
+	e.write(Serialization.serialize(data));
 	e.close();
   }
 
   public void process_importDataRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	final FileItemIterator iter = new ServletFileUpload().getItemIterator(request);
-	while (iter.hasNext())
+	final DiskFileItemFactory factory = new DiskFileItemFactory();
+	final ServletFileUpload upload = new ServletFileUpload(factory);
+
+	final Map<String, String> parameters = new HashMap<String, String>();
+
+	final List<FileItem> iter = upload.parseRequest(request);
+
+	for (final FileItem item : iter)
 	{
-	  final FileItemStream item = iter.next();
-	  final String name = item.getFieldName();
-
-	  final XMLDecoder e = new XMLDecoder(new GZIPInputStream(item.openStream()));
-	  final List<List> data = (List<List>) e.readObject();
-	  e.close();
-
-	  final StringBuffer buff = new StringBuffer();
-
-	  buff.append("Storing users");
-	  servletDAO.deleteEntries("MAK_USERS");
-
-	  final List<User> users = data.get(0);
-	  for (final User user : users)
+	  if (item.isFormField())
 	  {
-		buff.append(".");
-		servletDAO.registerNewUser(user, getLanguage(getUser(request).language));
+		parameters.put(item.getFieldName(), item.getString());
 	  }
-
-	  buff.append("<p>Storing CategoryGroups");
-	  servletDAO.deleteEntries("MAK_CATEGORY_GROUP");
-
-	  final List<CategoryGroup> categoryGroups = data.get(1);
-
-	  if (!categoryGroups.isEmpty())
+	  else
 	  {
-		for (final CategoryGroup categoryGroup : categoryGroups)
-		{
-		  buff.append(".");
-		  servletDAO.saveCategoryGroup(categoryGroup);
-		}
-
-		buff.append("<p>Storing Categories");
-		servletDAO.deleteEntries("MAK_CATEGORY");
-
-		final List<Category> categories = data.get(2);
-		for (final Category category : categories)
-		{
-		  buff.append(".");
-		  servletDAO.saveCategory(category);
-		}
-
-		buff.append("<p>Storing Models");
-		servletDAO.deleteEntries("MAK_MODEL");
-
-		final List<Model> models = data.get(3);
-		for (final Model model : models)
-		{
-		  buff.append(".");
-		  servletDAO.saveModel(model);
-		}
+		processUploadedFile(request, response, item, parameters);
 	  }
+	}
+  }
 
-	  buff.append("<p>DONE.....");
+  private void processUploadedFile(final HttpServletRequest request, final HttpServletResponse response, FileItem item,
+	  Map<String, String> parameters) throws IOException, SQLException, Exception
+  {
+	if ("imageFile".equals(item.getFieldName()))
+	{
+	  final int modelID = Integer.parseInt(parameters.get("modelID"));
 
+	  final BufferedImage originalImage = ImageUtil.load(item.getInputStream());
+	  final BufferedImage resizedImage = ImageUtil.resize(originalImage, 800);
+
+	  final ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+	  ImageUtil.save(resizedImage, output);
+
+	  servletDAO.saveImage(modelID, new ByteArrayInputStream(output.toByteArray()));
+
+	  response.sendRedirect("jsp/main.jsp");
+	}
+	else if ("zipFile".equals(item.getFieldName()))
+	{
+	  final StringBuffer buff = importZip(request, item.getInputStream());
 	  writeResponse(response, buff);
 	}
+  }
+
+  private StringBuffer importZip(final HttpServletRequest request, final InputStream stream) throws IOException, SQLException,
+	  Exception, IOError
+  {
+	final GZIPInputStream e = new GZIPInputStream(stream);
+	final List<List> data = (List<List>) Serialization.deserialize(e);
+	e.close();
+
+	final StringBuffer buff = new StringBuffer();
+
+	buff.append("Storing users");
+	servletDAO.deleteEntries("MAK_USERS");
+
+	final List<User> users = data.get(0);
+	for (final User user : users)
+	{
+	  buff.append(".");
+	  servletDAO.registerNewUser(user, getLanguage(getUser(request).language));
+	  for (final ModelClass modelClass : user.getModelClass())
+	  {
+		servletDAO.saveModelClass(user.userID, modelClass);
+	  }
+	}
+
+	buff.append("<p>Storing CategoryGroups");
+	servletDAO.deleteEntries("MAK_CATEGORY_GROUP");
+
+	final List<CategoryGroup> categoryGroups = data.get(1);
+
+	if (!categoryGroups.isEmpty())
+	{
+	  for (final CategoryGroup categoryGroup : categoryGroups)
+	  {
+		buff.append(".");
+		servletDAO.saveCategoryGroup(categoryGroup);
+	  }
+
+	  buff.append("<p>Storing Categories");
+	  servletDAO.deleteEntries("MAK_CATEGORY");
+
+	  final List<Category> categories = data.get(2);
+	  for (final Category category : categories)
+	  {
+		buff.append(".");
+		if (category.getModelClass() == null)
+		{
+		  category.setModelClass(ModelClass.Other);
+		}
+		servletDAO.saveCategory(category);
+	  }
+
+	  buff.append("<p>Storing Models");
+	  servletDAO.deleteEntries("MAK_MODEL");
+
+	  final List<Model> models = data.get(3);
+	  for (final Model model : models)
+	  {
+		buff.append(".");
+		servletDAO.saveModel(model);
+	  }
+	}
+
+	servletDAO.deleteEntries("MAK_PICTURES");
+	if (data.size() >= 5)
+	{
+	  buff.append("<p>Storing Photos");
+	  final Map<Integer, byte[]> photos = (Map<Integer, byte[]>) data.get(4);
+	  for (final Entry<Integer, byte[]> photoEntries : photos.entrySet())
+	  {
+		final ByteArrayInputStream photoStream = new ByteArrayInputStream(photoEntries.getValue());
+		servletDAO.saveImage(photoEntries.getKey(), photoStream);
+		photoStream.close();
+		buff.append(".");
+	  }
+	}
+
+	buff.append("<p>DONE.....");
+	return buff;
   }
 
   public void process_deleteDataForShowRequest(final HttpServletRequest request, final HttpServletResponse response)
@@ -735,8 +794,9 @@ public class RegistrationServlet extends HttpServlet
 	  final String httpParameterPostTag) throws Exception
   {
 	final String password = "-";
-	final String userName = getRequestAttribute(request, "lastname" + httpParameterPostTag)
-	    + getRequestAttribute(request, "firstname" + httpParameterPostTag) + DIRECT_USER + System.currentTimeMillis();
+	final String userName = ServletUtil.getRequestAttribute(request, "lastname" + httpParameterPostTag)
+	    + ServletUtil.getRequestAttribute(request, "firstname" + httpParameterPostTag) + User.LOCAL_USER
+		+ System.currentTimeMillis();
 
 	servletDAO.registerNewUser(createUser(request, userName, password, httpParameterPostTag), language);
 
@@ -746,8 +806,8 @@ public class RegistrationServlet extends HttpServlet
 
   public void process_registerRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	String email = getRequestAttribute(request, "email");
-	final String languageCode = getRequestAttribute(request, "language");
+	final String email = ServletUtil.getRequestAttribute(request, "email");
+	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
 	final ResourceBundle language = getLanguage(languageCode);
 
 	if (email.trim().length() == 0 || email.equals("-") || email.indexOf("@") == -1)
@@ -759,19 +819,19 @@ public class RegistrationServlet extends HttpServlet
 
 	if (servletDAO.userExists(email))
 	{
-	  RequestDispatcher dispatcher = request.getRequestDispatcher("/jsp/userExists.jsp");
+	  final RequestDispatcher dispatcher = request.getRequestDispatcher("/jsp/userExists.jsp");
 	  dispatcher.forward(request, response);
 	  return;
 	}
 
-	final String password = getRequestAttribute(request, "password");
+	final String password = ServletUtil.getRequestAttribute(request, "password");
 
-	if (!password.equals(getRequestAttribute(request, "password2")))
+	if (!password.equals(ServletUtil.getRequestAttribute(request, "password2")))
 	{
 	  writeErrorResponse(response, language.getString("passwords.not.same"));
 	}
 
-	User user = createUser(request, email);
+	final User user = createUser(request, email);
 	servletDAO.registerNewUser(user, language);
 
 	sendEmail(user, true);
@@ -781,7 +841,7 @@ public class RegistrationServlet extends HttpServlet
 
 	buff.append(language.getString("email.was.sent"));
 	buff.append("<p>");
-	buff.append("<a href='index.html'>" + language.getString("proceed.to.login") + "</a></body></html>");
+	buff.append("<a href='../index.html'>" + language.getString("proceed.to.login") + "</a></body></html>");
 
 	writeResponse(response, buff);
 
@@ -792,9 +852,10 @@ public class RegistrationServlet extends HttpServlet
 	final User oldUser = getUser(request);
 	final ResourceBundle language = getLanguage(oldUser.language);
 
-	final User newUser = createUser(request, getRequestAttribute(request, "email"));
+	final User newUser = createUser(request, ServletUtil.getRequestAttribute(request, "email"));
 	newUser.userID = oldUser.userID;
-	if (newUser.email.trim().length() == 0 || newUser.email.equals("-") || newUser.email.indexOf("@") == -1)
+	if (!"ADMIN".equals(newUser.language) && !newUser.isLocalUser()
+	    && (newUser.email.trim().length() == 0 || newUser.email.equals("-") || newUser.email.indexOf("@") == -1))
 	{
 	  writeErrorResponse(response, language.getString("authentication.failed") + " " + language.getString("email") + ": ["
 		  + newUser.email + "]");
@@ -805,7 +866,7 @@ public class RegistrationServlet extends HttpServlet
 
 	request.getSession(false).setAttribute("userID", servletDAO.getUser(oldUser.userID));
 
-	response.sendRedirect("jsp/main.jsp");
+	response.sendRedirect("../jsp/main.jsp");
   }
 
   public void process_newUserIDsRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
@@ -949,18 +1010,32 @@ public class RegistrationServlet extends HttpServlet
 
 	message.append("</body></html>");
 
-	sendMessage(getServerConfigParamter("email.smtpServer"), getServerConfigParamter("email.from"), user.email,
+	ServletUtil.sendEmail(getServerConfigParamter("email.smtpServer"), getServerConfigParamter("email.from"), user.email,
 	    language.getString("email.subject"), message.toString(),
 	    Boolean.parseBoolean(getServerConfigParamter("email.debugSMTP")), getServerConfigParamter("email.password"));
   }
 
   public void process_addCategoryRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	final Category category = new Category(servletDAO.getNextID("CATEGORY", "CATEGORY_ID"), getRequestAttribute(request,
-	    "categorycode"), getRequestAttribute(request, "categorydescription"), servletDAO.getCategoryGroup(
-	    Integer.parseInt(getRequestAttribute(request, "categoryGroupID")), servletDAO.getCategoryGroups()));
+	final Category category = new Category(servletDAO.getNextID("CATEGORY", "CATEGORY_ID"), ServletUtil.getRequestAttribute(
+	    request, "categorycode"), ServletUtil.getRequestAttribute(request, "categorydescription"), servletDAO.getCategoryGroup(
+	    Integer.parseInt(ServletUtil.getRequestAttribute(request, "categoryGroupID")), servletDAO.getCategoryGroups()),
+	    isCheckedIn(request, "master"), ModelClass.valueOf(ServletUtil.getRequestAttribute(request, "modelClass")),
+	    AgeGroup.valueOf(ServletUtil.getRequestAttribute(request, "ageGroup"))
+
+	);
 
 	servletDAO.saveCategory(category);
+
+	response.sendRedirect("jsp/main.jsp");
+  }
+
+  public void process_saveModelClassRequest(final HttpServletRequest request, final HttpServletResponse response)
+	  throws Exception
+  {
+	final int userID = Integer.valueOf(ServletUtil.getRequestAttribute(request, "userID"));
+
+	servletDAO.saveModelClass(userID, ModelClass.valueOf(ServletUtil.getRequestAttribute(request, "modelClass")));
 
 	response.sendRedirect("jsp/main.jsp");
   }
@@ -969,7 +1044,7 @@ public class RegistrationServlet extends HttpServlet
 	  throws Exception
   {
 	final CategoryGroup categoryGroup = new CategoryGroup(servletDAO.getNextID("CATEGORY_GROUP", "CATEGORY_group_ID"),
-	    getRequestAttribute(request, "show"), getRequestAttribute(request, "group"));
+	    ServletUtil.getRequestAttribute(request, "show"), ServletUtil.getRequestAttribute(request, "group"));
 
 	servletDAO.saveCategoryGroup(categoryGroup);
 
@@ -1015,6 +1090,18 @@ public class RegistrationServlet extends HttpServlet
 	buff.append(language.getString("category.description"));
 	buff.append("</th>");
 
+	buff.append("<th style='white-space: nowrap'>");
+	buff.append("Mester");
+	buff.append("</th>");
+
+	buff.append("<th style='white-space: nowrap'>");
+	buff.append("Szak&aacute;g");
+	buff.append("</th>");
+
+	buff.append("<th style='white-space: nowrap'>");
+	buff.append("Korcsoport");
+	buff.append("</th>");
+
 	buff.append("</tr>");
 
 	for (final Category category : categories)
@@ -1034,6 +1121,15 @@ public class RegistrationServlet extends HttpServlet
 	  buff.append("</td>");
 	  buff.append("<td align='center' >");
 	  buff.append(category.categoryDescription);
+	  buff.append("</td>");
+	  buff.append("<td align='center' >");
+	  buff.append("<input type='checkbox' " + (category.isMaster() ? "checked" : "") + ">");
+	  buff.append("</td>");
+	  buff.append("<td align='center' >");
+	  buff.append(category.getModelClass().name());
+	  buff.append("</td>");
+	  buff.append("<td align='center' >");
+	  buff.append(category.getAgeGroup().name());
 	  buff.append("</td>");
 	  buff.append("</tr>");
 	}
@@ -1081,6 +1177,10 @@ public class RegistrationServlet extends HttpServlet
 
 	buff.append("<th style='white-space: nowrap'>");
 	buff.append(language.getString("country"));
+	buff.append("</th>");
+
+	buff.append("<th style='white-space: nowrap'>");
+	buff.append("Szakoszt&aacute;ly");
 	buff.append("</th>");
 
 	buff.append("<th style='white-space: nowrap'>");
@@ -1137,6 +1237,10 @@ public class RegistrationServlet extends HttpServlet
 	  buff.append("</td>");
 
 	  buff.append("<td align='center' >");
+	  buff.append(user.getModelClass());
+	  buff.append("</td>");
+
+	  buff.append("<td align='center' >");
 	  buff.append(user.language);
 	  buff.append("</td>");
 
@@ -1169,11 +1273,13 @@ public class RegistrationServlet extends HttpServlet
 
 	buff.append("<html>");
 	buff.append("<head>");
-	buff.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />");
+	//	buff.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />");
 	buff.append("</head>");
 	buff.append("<body>");
 
-	buff.append("<form accept-charset=\"UTF-8\" name='input' action='RegistrationServlet' method='put'>");
+	buff.append("<form "
+	//		+ "accept-charset=\"UTF-8\" "
+	    + "name='input' action='RegistrationServlet' method='POST'>");
 	buff.append("<input type='hidden' name='command' value='addCategory'>");
 	buff.append("<table border='0'>");
 
@@ -1218,6 +1324,40 @@ public class RegistrationServlet extends HttpServlet
 	buff.append("</tr>");
 
 	buff.append("<tr>");
+	buff.append("<td>");
+	buff.append("Mester: ");
+	buff.append("</td>");
+	buff.append("<td><input name='master' type='checkbox' value='on'></td>");
+	buff.append("</tr>");
+
+	buff.append("<tr>");
+	buff.append("<td>");
+	buff.append("Szak&aacute;g: ");
+	buff.append("</td>");
+	buff.append("<td><select name='modelClass'>");
+	for (final ModelClass mc : ModelClass.values())
+	{
+	  buff.append("<option value='" + mc.name() + "'>" + mc.name() + "</option>");
+	}
+	buff.append("</select>");
+	buff.append("</td>");
+	buff.append("</tr>");
+
+	buff.append("<tr>");
+	buff.append("<td>");
+	buff.append("Korcsoport: ");
+	buff.append("</td>");
+	buff.append("<td><select name='ageGroup'>");
+	buff.append("<option value='" + AgeGroup.ALL.name() + "' selected>" + AgeGroup.ALL.name() + "</option>");
+	for (final AgeGroup mc : AgeGroup.values())
+	{
+	  buff.append("<option value='" + mc.name() + "'>" + mc.name() + "</option>");
+	}
+	buff.append("</select>");
+	buff.append("</td>");
+	buff.append("</tr>");
+
+	buff.append("<tr>");
 	buff.append("<td></td>");
 	buff.append("<td><input name='addCategory' type='submit' value='" + language.getString("save") + "'></td>");
 	buff.append("</tr>");
@@ -1232,7 +1372,7 @@ public class RegistrationServlet extends HttpServlet
   public void process_inputForModifyModelRequest(final HttpServletRequest request, final HttpServletResponse response)
 	  throws Exception
   {
-	final int modelID = Integer.parseInt(getRequestAttribute(request, "modelID"));
+	final int modelID = Integer.parseInt(ServletUtil.getRequestAttribute(request, "modelID"));
 
 	getModelForm(request, response, "modifyModel", "modify", modelID);
   }
@@ -1240,8 +1380,6 @@ public class RegistrationServlet extends HttpServlet
   public void process_inputForAddModelRequest(final HttpServletRequest request, final HttpServletResponse response)
 	  throws Exception
   {
-	final User user = getUser(request);
-
 	if (preRegistrationAllowed || onSiteUse)
 	{
 	  getModelForm(request, response, "addModel", "add", null);
@@ -1254,7 +1392,7 @@ public class RegistrationServlet extends HttpServlet
 
   public void process_modifyModelRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	final int modelID = Integer.valueOf(getRequestAttribute(request, "modelID"));
+	final int modelID = Integer.valueOf(ServletUtil.getRequestAttribute(request, "modelID"));
 
 	final Model model = createModel(modelID, servletDAO.getModel(modelID).userID, request);
 
@@ -1281,19 +1419,20 @@ public class RegistrationServlet extends HttpServlet
   private Model createModel(final int modelID, final int userID, final HttpServletRequest request,
 	  final String httpParameterPostTag) throws Exception
   {
-	return new Model(modelID, userID, Integer.parseInt(getRequestAttribute(request, "categoryID" + httpParameterPostTag)),
-	    getRequestAttribute(request, "modelscale" + httpParameterPostTag), getRequestAttribute(request, "modelname"
-	        + httpParameterPostTag), getRequestAttribute(request, "modelproducer" + httpParameterPostTag),
-	    getOptionalRequestAttribute(request, "modelcomment" + httpParameterPostTag), getOptionalRequestAttribute(request,
-	        "identification" + httpParameterPostTag), getOptionalRequestAttribute(request, "markings" + httpParameterPostTag),
-	    isCheckedIn(request, "gluedToBase" + httpParameterPostTag), getDetailing(request));
+	return new Model(modelID, userID, Integer.parseInt(ServletUtil.getRequestAttribute(request, "categoryID"
+	    + httpParameterPostTag)), ServletUtil.getRequestAttribute(request, "modelscale" + httpParameterPostTag),
+	    ServletUtil.getRequestAttribute(request, "modelname" + httpParameterPostTag), ServletUtil.getRequestAttribute(request,
+	        "modelproducer" + httpParameterPostTag), ServletUtil.getOptionalRequestAttribute(request, "modelcomment"
+	        + httpParameterPostTag), ServletUtil.getOptionalRequestAttribute(request, "identification" + httpParameterPostTag),
+	    ServletUtil.getOptionalRequestAttribute(request, "markings" + httpParameterPostTag), isCheckedIn(request, "gluedToBase"
+	        + httpParameterPostTag), getDetailing(request));
   }
 
   boolean isCheckedIn(final HttpServletRequest request, final String parameter) throws Exception
   {
 	try
 	{
-	  return "on".equalsIgnoreCase(getRequestAttribute(request, parameter));
+	  return "on".equalsIgnoreCase(ServletUtil.getRequestAttribute(request, parameter));
 	}
 	catch (final Exception e)
 	{
@@ -1309,10 +1448,15 @@ public class RegistrationServlet extends HttpServlet
 	{
 	  final String group = Detailing.DETAILING_GROUPS[i];
 
-	  detailing[i] = new Detailing(group, new boolean[] { isCheckedIn(request, "detailing." + group + ".externalSurface"),
-		  isCheckedIn(request, "detailing." + group + ".cockpit"), isCheckedIn(request, "detailing." + group + ".engine"),
-		  isCheckedIn(request, "detailing." + group + ".undercarriage"), isCheckedIn(request, "detailing." + group + ".gearBay"),
-		  isCheckedIn(request, "detailing." + group + ".armament"), isCheckedIn(request, "detailing." + group + ".conversion") });
+	  List<Boolean> criterias = new LinkedList<Boolean>();
+	  criterias.add(isCheckedIn(request, "detailing." + group + ".externalSurface"));
+	  criterias.add(isCheckedIn(request, "detailing." + group + ".cockpit"));
+	  criterias.add(isCheckedIn(request, "detailing." + group + ".engine"));
+	  criterias.add(isCheckedIn(request, "detailing." + group + ".undercarriage"));
+	  criterias.add(isCheckedIn(request, "detailing." + group + ".gearBay"));
+	  criterias.add(isCheckedIn(request, "detailing." + group + ".armament"));
+	  criterias.add(isCheckedIn(request, "detailing." + group + ".conversion"));
+	  detailing[i] = new Detailing(group, criterias);
 	}
 
 	return detailing;
@@ -1333,11 +1477,19 @@ public class RegistrationServlet extends HttpServlet
   public void process_inputForDeleteModelRequest(final HttpServletRequest request, final HttpServletResponse response)
 	  throws Exception
   {
+	final List<Model> models = servletDAO.getModels(getUser(request).userID);
+
+	if (models.isEmpty())
+	{
+	  response.sendRedirect("jsp/main.jsp");
+	  return;
+	}
+
 	final StringBuffer buff = new StringBuffer();
 
 	buff.append("<html><body>");
 
-	buff.append(inputForSelectModel(getUser(request), "deleteModel", "delete"));
+	buff.append(inputForSelectModel(getUser(request), "deleteModel", "delete", models));
 	buff.append("</body></html>");
 
 	writeResponse(response, buff);
@@ -1348,9 +1500,17 @@ public class RegistrationServlet extends HttpServlet
   {
 	final User user = getUser(request);
 
+	final List<Model> models = servletDAO.getModels(user.userID);
+
+	if (models.isEmpty())
+	{
+	  response.sendRedirect("jsp/main.jsp");
+	  return;
+	}
+
 	if (preRegistrationAllowed || onSiteUse)
 	{
-	  writeResponse(response, inputForSelectModel(user, "inputForModifyModel", "modify"));
+	  writeResponse(response, inputForSelectModel(user, "inputForModifyModel", "modify", models));
 	}
 	else
 	{
@@ -1358,17 +1518,51 @@ public class RegistrationServlet extends HttpServlet
 	}
   }
 
-  public StringBuffer inputForSelectModel(final User user, final String action, final String submitLabel) throws Exception
+  public void process_inputForPhotoUploadRequest(final HttpServletRequest request, final HttpServletResponse response)
+	  throws Exception
   {
 	final StringBuffer buff = new StringBuffer();
+	final User user = getUser(request);
 	final ResourceBundle language = getLanguage(user.language);
+
+	final List<Model> models = servletDAO.getModels(user.userID);
+
+	if (models.isEmpty())
+	{
+	  response.sendRedirect("jsp/main.jsp");
+	  return;
+	}
+
+	buff.append("<form name='input' action='RegistrationServlet' method='post'  enctype='multipart/form-data'>");
+	for (final Model model : models)
+	{
+	  buff.append("<input type='radio' name='modelID' value='" + model.modelID + "'/>");
+	  buff.append(model.scale + " - " + model.producer + " - " + model.name + "<br>");
+	}
+	buff.append("<p><input type='file' name='imageFile' />");
+
+	buff.append("<p><input type='submit' value='" + language.getString("save") + "'>");
+	buff.append("</form>");
+
+	writeResponse(response, buff);
+  }
+
+  public StringBuffer inputForSelectModel(final User user, final String action, final String submitLabel, final List<Model> models)
+	  throws Exception
+  {
+	final StringBuffer buff = new StringBuffer();
+
+	if (models.isEmpty())
+	{
+	  return buff;
+	}
 
 	buff.append("<form name='input' action='RegistrationServlet' method='put'>");
 	buff.append("<input type='hidden' name='command' value='");
 	buff.append(action);
 	buff.append("'>");
 
-	for (final Model model : servletDAO.getModels(user.userID))
+	for (final Model model : models)
 	{
 	  buff.append("<input type='radio' name='modelID' value='" + model.modelID + "'/>");
 	  buff.append(model.scale + " - " + model.producer + " - " + model.name + "<br>");
@@ -1376,6 +1570,7 @@ public class RegistrationServlet extends HttpServlet
 
 	buff.append("<p><input name='");
 	buff.append(action);
+	final ResourceBundle language = getLanguage(user.language);
 	buff.append("' type='submit' value='" + language.getString(submitLabel) + "'>");
 	buff.append("</form>");
 
@@ -1393,13 +1588,13 @@ public class RegistrationServlet extends HttpServlet
   public void process_inputForLoginUserRequest(final HttpServletRequest request, final HttpServletResponse response)
 	  throws Exception
   {
-	final String language = getRequestAttribute(request, "language");
+	final String language = ServletUtil.getRequestAttribute(request, "language");
 	selectUser(request, response, "directLogin", getLanguage(language).getString("login"), language);
   }
 
   public void process_inputForPrintRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	final String language = getRequestAttribute(request, "language");
+	final String language = ServletUtil.getRequestAttribute(request, "language");
 	selectUser(request, response, "directPrintModels", getLanguage(language).getString("print.models"), language);
   }
 
@@ -1410,9 +1605,11 @@ public class RegistrationServlet extends HttpServlet
 
 	final String show = (String) request.getSession().getAttribute("show");
 
-	buff.append("<html><body>");
+	buff.append("<html>"
+	//		+ "<head><meta http-equiv='Content-Type' content='text/html; charset=UTF-8' /></head>"
+	    + "<body>");
 
-	buff.append("<form name='input' action='RegistrationServlet' method='put'>");
+	buff.append("<form name='input' action='RegistrationServlet' method='put' >");
 	buff.append("<input type='hidden' name='command' value='" + command + "'>");
 	if (show != null)
 	{
@@ -1450,7 +1647,7 @@ public class RegistrationServlet extends HttpServlet
 
 	  if (param.startsWith("userID"))
 	  {
-		final int userID = Integer.parseInt(getRequestAttribute(request, param));
+		final int userID = Integer.parseInt(ServletUtil.getRequestAttribute(request, param));
 
 		servletDAO.deleteUser(userID);
 	  }
@@ -1465,7 +1662,7 @@ public class RegistrationServlet extends HttpServlet
   {
 	for (final User user : servletDAO.getUsers())
 	{
-	  if (user.email.indexOf(DIRECT_USER) > -1)
+	  if (user.isLocalUser())
 	  {
 		servletDAO.deleteUser(user.userID);
 	  }
@@ -1478,8 +1675,9 @@ public class RegistrationServlet extends HttpServlet
   public void process_setSystemParameterRequest(final HttpServletRequest request, final HttpServletResponse response)
 	  throws Exception
   {
-	servletDAO.setSystemParameter(getRequestAttribute(request, "paramName"), getRequestAttribute(request, "paramValue"));
-
+	servletDAO.setSystemParameter(ServletUtil.getRequestAttribute(request, "paramName"),
+	    servletDAO.encodeString(ServletUtil.getRequestAttribute(request, "paramValue")));
+	updateSystemSettings();
 	response.sendRedirect("jsp/main.jsp");
 
   }
@@ -1568,29 +1766,6 @@ public class RegistrationServlet extends HttpServlet
 
   }
 
-  public void process_listAllModelsRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
-  {
-	final StringBuffer buff = new StringBuffer();
-	final List<Model> models = servletDAO.getModels(ServletDAO.INVALID_USERID);
-
-	final String show = (String) request.getSession().getAttribute("show");
-	final Iterator<Model> it = models.iterator();
-	while (it.hasNext())
-	{
-	  final Model model = it.next();
-
-	  if (!servletDAO.getCategory(model.categoryID).group.show.equals(show))
-	  {
-		it.remove();
-	  }
-	}
-
-	getModelTable(buff, models, getLanguage(getUser(request).language),
-	    Boolean.parseBoolean(getRequestAttribute(request, "withDetailing")));
-
-	writeResponse(response, buff);
-  }
-
   public void process_printAllModelsRequest(final HttpServletRequest request, final HttpServletResponse response)
 	  throws Exception
   {
@@ -1650,7 +1825,7 @@ public class RegistrationServlet extends HttpServlet
   {
 	final User user = getUser(request);
 
-	final String modelID = getOptionalRequestAttribute(request, "modelID");
+	final String modelID = ServletUtil.getOptionalRequestAttribute(request, "modelID");
 
 	if ("-".equals(modelID))
 	{
@@ -1709,7 +1884,7 @@ public class RegistrationServlet extends HttpServlet
 
 	final StringBuffer buff = new StringBuffer();
 
-	User user = servletDAO.getUser(userID);
+	final User user = servletDAO.getUser(userID);
 	while (!models.isEmpty())
 	{
 	  final List<Model> subList = new LinkedList<Model>();
@@ -1784,8 +1959,9 @@ public class RegistrationServlet extends HttpServlet
 			for (int j = 0; j < detailingCriterias.length; j++)
 			{
 			  print = print.replaceAll("__" + detailingGroups[i] + "_" + detailingCriterias[j] + "__",
-				  model.detailing[i].criterias[j] ? "<font size='+3'>&#8226;</font>"
-				      : "<font size='+3' color='#FFFFFF'>&nbsp</font>");
+				  model.detailing[i].criterias.get(j) ? "<font size='+3'>&#8226;</font>"
+
+				  : "<font size='+3' color='#FFFFFF'>&nbsp</font>");
 			}
 		  }
 
@@ -1813,319 +1989,16 @@ public class RegistrationServlet extends HttpServlet
 	response.sendRedirect("jsp/user.jsp");
   }
 
-  public void process_listMyModelsRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public String getServletURL(final HttpServletRequest request)
   {
-	final StringBuffer buff = new StringBuffer();
-	getModelTable(buff, servletDAO.getModels(getUser(request).userID), getLanguage(getUser(request).language), true);
+	final StringBuffer requestURL = request.getRequestURL();
 
-	writeResponse(response, buff);
-  }
-
-  public void process_selectModelRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
-  {
-	final StringBuffer buff = new StringBuffer();
-	getModelTable(buff, servletDAO.selectModels(request), getLanguage(getUser(request).language), true);
-
-	writeResponse(response, buff);
-  }
-
-  private StringBuffer getModelTable(final StringBuffer buff, final List<Model> models, final ResourceBundle language,
-	  final boolean withDetailing) throws SQLException, Exception
-  {
-	return getModelTable(buff, models, language, withDetailing, false);
-  }
-
-  private StringBuffer getModelTable(final StringBuffer buff, final List<Model> models, final ResourceBundle language,
-	  final boolean withDetailing, final boolean insertAwards) throws SQLException, Exception
-  {
-
-	buff.append("<table border=1>");
-	buff.append("<tr>");
-
-	if (insertAwards)
+	if (requestURL.indexOf(".jsp") > -1)
 	{
-	  buff.append("<th align='center' style='white-space: nowrap'>");
-	  buff.append(language.getString("award"));
-	  buff.append("</th>");
+	  return requestURL.substring(0, requestURL.indexOf("jsp/")) + getClass().getSimpleName();
 	}
 
-	buff.append("<th align='center' style='white-space: nowrap'>");
-	buff.append(language.getString("last.name"));
-	buff.append("</th>");
-
-	buff.append("<th align='center' style='white-space: nowrap'>");
-	buff.append(language.getString("first.name"));
-	buff.append("</th>");
-
-	buff.append("<th align='center' style='white-space: nowrap'>");
-	buff.append(language.getString("city"));
-	buff.append("</th>");
-
-	buff.append("<th align='center' style='white-space: nowrap'>");
-	buff.append(language.getString("country"));
-	buff.append("</th>");
-
-	if (!insertAwards)
-	{
-	  buff.append("<th align='center' style='white-space: nowrap'>");
-	  buff.append(language.getString("userID"));
-	  buff.append("</th>");
-
-	  // buff.append("<th align='center' style='white-space: nowrap'>");
-	  // buff.append(language.getString("user.name"));
-	  // buff.append("</th>");
-
-	  buff.append("<th align='center' style='white-space: nowrap'>");
-	  buff.append(language.getString("modelID"));
-	  buff.append("</th>");
-	}
-
-	buff.append("<th align='center' style='white-space: nowrap'>");
-	buff.append(language.getString("models.name"));
-	buff.append("</th>");
-
-	if (!insertAwards)
-	{
-	  buff.append("<th align='center' style='white-space: nowrap'>");
-	  buff.append(language.getString("scale"));
-	  buff.append("</th>");
-
-	  buff.append("<th align='center' style='white-space: nowrap'>");
-	  buff.append(language.getString("models.identification"));
-	  buff.append("</th>");
-
-	  buff.append("<th align='center' style='white-space: nowrap'>");
-	  buff.append(language.getString("models.markings"));
-	  buff.append("</th>");
-
-	  buff.append("<th align='center' style='white-space: nowrap'>");
-	  buff.append(language.getString("models.producer"));
-	  buff.append("</th>");
-
-	  // buff.append("<th>categoryID</th>");
-	}
-
-	buff.append("<th align='center' style='white-space: nowrap'>");
-	buff.append(language.getString("show"));
-	buff.append("</th>");
-
-	buff.append("<th align='center' style='white-space: nowrap'>");
-	buff.append(language.getString("category.code"));
-	buff.append("</th>");
-
-	buff.append("<th align='center' style='white-space: nowrap'>");
-	buff.append(language.getString("category.description"));
-	buff.append("</th>");
-
-	if (!insertAwards)
-	{
-	  if (withDetailing)
-	  {
-		buff.append("<th align='center' style='white-space: nowrap'>");
-		buff.append(language.getString("models.detailing"));
-		buff.append("</th>");
-	  }
-
-	  buff.append("<th align='center' style='white-space: nowrap'>");
-	  buff.append(language.getString("glued.to.base"));
-	  buff.append("</th>");
-
-	  buff.append("<th align='center' style='white-space: nowrap'>");
-	  buff.append(language.getString("comment"));
-	  buff.append("</th>");
-	}
-
-	buff.append("</tr>");
-
-	for (final Model model : models)
-	{
-	  buff.append("<tr>");
-
-	  final User modelsUser = servletDAO.getUser(model.userID);
-	  // buff.append("<td align='center'>");
-	  // buff.append(modelsUser.userName);
-	  // buff.append("</td>");
-
-	  if (insertAwards)
-	  {
-		buff.append("<td align='center'>");
-		buff.append(model.award);
-		buff.append("</td>");
-	  }
-
-	  buff.append("<td align='center'>");
-	  buff.append(modelsUser.lastName);
-	  buff.append("</td>");
-
-	  buff.append("<td align='center'>");
-	  buff.append(modelsUser.firstName);
-	  buff.append("</td>");
-
-	  buff.append("<td align='center'>");
-	  buff.append(modelsUser.city);
-	  buff.append("</td>");
-
-	  buff.append("<td align='center'>");
-	  buff.append(modelsUser.country);
-	  buff.append("</td>");
-
-	  if (!insertAwards)
-	  {
-		buff.append("<td align='center'>");
-		buff.append(model.userID);
-		buff.append("</td>");
-
-		buff.append("<td align='center'>");
-		buff.append(model.modelID);
-		buff.append("</td>");
-	  }
-
-	  buff.append("<td align='center' style='white-space: nowrap'>");
-	  buff.append(model.name);
-	  buff.append("</td>");
-
-	  if (!insertAwards)
-	  {
-		buff.append("<td align='center'>");
-		buff.append(model.scale);
-		buff.append("</td>");
-
-		buff.append("<td align='center' style='white-space: nowrap'>");
-		buff.append(model.identification);
-		buff.append("</td>");
-
-		buff.append("<td align='center' style='white-space: nowrap'>");
-		buff.append(model.markings);
-		buff.append("</td>");
-
-		buff.append("<td align='center' style='white-space: nowrap'>");
-		buff.append(model.producer);
-		buff.append("</td>");
-
-		// buff.append("<td>");
-		// buff.append(model.categoryID);
-		// buff.append("</td>");
-	  }
-
-	  final Category category = servletDAO.getCategory(model.categoryID);
-
-	  buff.append("<td align='center' style='white-space: nowrap'>");
-	  buff.append(category.group.show);
-	  buff.append("</td>");
-
-	  buff.append("<td align='center' style='white-space: nowrap'>");
-	  buff.append(category.categoryCode);
-	  buff.append("</td>");
-
-	  buff.append("<td align='center' style='white-space: nowrap'>");
-	  buff.append(category.categoryDescription);
-	  buff.append("</td>");
-
-	  if (!insertAwards)
-	  {
-		if (withDetailing)
-		{
-		  buff.append("<td><table cellpadding='5' border='1'>");
-		  buff.append("<tr>");
-		  buff.append("<td>&nbsp;</td>");
-
-		  for (int i = 0; i < Detailing.DETAILING_GROUPS.length; i++)
-		  {
-			buff.append("<td>");
-			buff.append(language.getString("detailing." + Detailing.DETAILING_GROUPS[i]));
-			buff.append("</td>");
-		  }
-		  buff.append("</tr>");
-
-		  for (int i = 0; i < Detailing.DETAILING_CRITERIAS.length; i++)
-		  {
-			buff.append("<tr>");
-			buff.append("<td>");
-			buff.append(language.getString("detailing." + Detailing.DETAILING_CRITERIAS[i]));
-			buff.append("</td>");
-
-			for (int j = 0; j < Detailing.DETAILING_GROUPS.length; j++)
-			{
-			  buff.append("<td><input  type='checkbox' " + (model.detailing[j].criterias[i] ? "checked" : "") + "></td>");
-			}
-
-			buff.append("</tr>");
-		  }
-		  buff.append("</table></td>");
-		}
-
-		buff.append("<td align='center'><input  type='checkbox' " + (model.gluedToBase ? "checked" : "") + "></td>");
-
-		buff.append("<td align='center'>");
-		buff.append(model.comment);
-		buff.append("</td>");
-	  }
-
-	  buff.append("</tr>");
-	}
-
-	buff.append("</table>");
-	return buff;
-  }
-
-  public static void sendMessage(String smtpServer, final String from, String to, String subject, String htmlMessage,
-	  boolean debugSMTP, final String password) throws Exception
-  {
-	if (from == null)
-	  throw new Exception("!!! Utils.sendMessage(): FROM address is null!");
-
-	if (from.indexOf("@") == -1)
-	  throw new Exception("!!! Utils.sendMessage(): invalid FROM e-mail address: " + from);
-
-	if (to == null)
-	  throw new Exception("!!! Utils.sendMessage(): TO address is null !");
-
-	if (to.indexOf("@") == -1)
-	  throw new Exception("!!! Utils.sendMessage(): invalid TO e-mail address: " + to);
-
-	Properties props = new Properties();
-	props.put("mail.smtp.host", smtpServer);
-	props.put("mail.debug", debugSMTP);
-	props.put("mail.smtp.socketFactory.port", "465");
-	props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
-	props.put("mail.smtp.auth", "true");
-	props.put("mail.smtp.port", "465");
-
-	Session session = Session.getDefaultInstance(props, new javax.mail.Authenticator()
-	{
-	  protected PasswordAuthentication getPasswordAuthentication()
-	  {
-		return new PasswordAuthentication(from, password);
-	  }
-	});
-
-	Message message = new MimeMessage(session);
-	message.setFrom(new InternetAddress(from));
-	message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
-	message.setSubject(subject);
-
-	// Create a multi-part to combine the parts
-	Multipart multipart = new MimeMultipart("alternative");
-
-	// Create your text message part
-	BodyPart messageBodyPart = new MimeBodyPart();
-	messageBodyPart
-	    .setText("Ha ezt latod, akkor a levelezod nem jol jeleniti meg az emailt. Kerlek valaszolj a feladonak a hibaval kapcsolatban.");
-
-	// Add the text part to the multipart
-	multipart.addBodyPart(messageBodyPart);
-
-	// Create the html part
-	messageBodyPart = new MimeBodyPart();
-	messageBodyPart.setContent(htmlMessage, "text/html");
-
-	// Add html part to multi part
-	multipart.addBodyPart(messageBodyPart);
-
-	// Associate multi-part with message
-	message.setContent(multipart);
-
-	Transport.send(message);
+	return requestURL.toString();
   }
 
   public void process_sendEmailRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
@@ -2139,8 +2012,6 @@ public class RegistrationServlet extends HttpServlet
 
   public void process_logoutRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	updateSystemSettings();
-
 	final User user = getUser(request);
 
 	if (!onSiteUse)
@@ -2161,15 +2032,7 @@ public class RegistrationServlet extends HttpServlet
 	}
 	else
 	{
-	  final StringBuffer buff = new StringBuffer();
-	  buff.append("<html><body>");
-
-	  buff.append("<p>");
-	  buff.append("<a href='index.html'>");
-	  buff.append(getLanguage(user.language).getString("proceed.to.login"));
-	  buff.append("</a></body></html>");
-
-	  writeResponse(response, buff);
+	  response.sendRedirect("index.html");
 	}
   }
 
@@ -2201,17 +2064,22 @@ public class RegistrationServlet extends HttpServlet
 
 	buff.append("<table border=1>");
 
-	String show = getOptionalRequestAttribute(request, "show");
+	String show = ServletUtil.getOptionalRequestAttribute(request, "show");
 	if ("-".equals(show))
 	{
 	  show = (String) request.getSession().getAttribute("show");
+
+	  if (show == null)
+	  {
+		show = servletDAO.getShows().get(0);
+	  }
 	}
 
 	for (final String[] stat : servletDAO.getStatistics(show))
 	{
 	  buff.append("<tr><td>");
 	  buff.append(stat[0]);
-	  buff.append("</td><td>");
+	  buff.append("</td><td align='center'>");
 	  buff.append(stat[1]);
 	  buff.append("</td></tr>");
 	}
@@ -2274,32 +2142,6 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_listAwardedModelsRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
-  {
-	final String languageCode = getRequestAttribute(request, "language");
-	final ResourceBundle language = getLanguage(languageCode);
-
-	final int rows = Integer.parseInt(getRequestAttribute(request, "rows"));
-
-	final List<Model> models = new LinkedList<Model>();
-	for (int i = 1; i <= rows; i++)
-	{
-	  final String httpParameterPostTag = String.valueOf(i);
-
-	  final String modelID = getOptionalRequestAttribute(request, "modelID" + httpParameterPostTag).trim();
-	  if (modelID.length() == 0 || "-".endsWith(modelID))
-	  {
-		continue;
-	  }
-
-	  final Model model = servletDAO.getModel(Integer.parseInt(modelID));
-	  model.award = getRequestAttribute(request, "award" + httpParameterPostTag).trim();
-	  models.add(model);
-	}
-	writeResponse(response, getModelTable(new StringBuffer(), models, language, false, true));
-  }
-
   public void process_printAwardedModelsRequest(final HttpServletRequest request, final HttpServletResponse response)
 	  throws Exception
   {
@@ -2315,14 +2157,14 @@ public class RegistrationServlet extends HttpServlet
   public void process_addAwardedModelsRequest(final HttpServletRequest request, final HttpServletResponse response)
 	  throws Exception
   {
-	final int rows = Integer.parseInt(getRequestAttribute(request, "rows"));
+	final int rows = Integer.parseInt(ServletUtil.getRequestAttribute(request, "rows"));
 
 	for (int i = 1; i <= rows; i++)
 	{
 	  final String httpParameterPostTag = String.valueOf(i);
 
-	  final String modelID = getRequestAttribute(request, "modelID" + httpParameterPostTag).trim();
-	  if (modelID.length() == 0)
+	  final String modelID = ServletUtil.getOptionalRequestAttribute(request, "modelID" + httpParameterPostTag);
+	  if ("-".equals(modelID))
 	  {
 		continue;
 	  }
@@ -2331,7 +2173,7 @@ public class RegistrationServlet extends HttpServlet
 	  final User user = servletDAO.getUser(model.userID);
 	  // Category category = servletDAO.getCategory(model.categoryID);
 
-	  final String award = getRequestAttribute(request, "award" + httpParameterPostTag).trim();
+	  final String award = ServletUtil.getRequestAttribute(request, "award" + httpParameterPostTag).trim();
 
 	  servletDAO.saveAwardedModel(new AwardedModel(award, model));
 	}
@@ -2342,17 +2184,17 @@ public class RegistrationServlet extends HttpServlet
   private void printAwardedModels(final HttpServletRequest request, final HttpServletResponse response, final StringBuffer buffer)
 	  throws Exception, IOException
   {
-	final String languageCode = getRequestAttribute(request, "language");
+	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
 	final ResourceBundle language = getLanguage(languageCode);
 
-	final int rows = Integer.parseInt(getRequestAttribute(request, "rows"));
+	final int rows = Integer.parseInt(ServletUtil.getRequestAttribute(request, "rows"));
 
 	final StringBuffer buff = new StringBuffer();
 	for (int i = 1; i <= rows; i++)
 	{
 	  final String httpParameterPostTag = String.valueOf(i);
 
-	  final String modelID = getOptionalRequestAttribute(request, "modelID" + httpParameterPostTag).trim();
+	  final String modelID = ServletUtil.getOptionalRequestAttribute(request, "modelID" + httpParameterPostTag).trim();
 	  if (modelID.length() == 0 || "-".endsWith(modelID))
 	  {
 		continue;
@@ -2368,7 +2210,7 @@ public class RegistrationServlet extends HttpServlet
 		  .replaceAll("__CATEGORY_CODE__", String.valueOf(category.categoryCode))
 		  .replaceAll("__MODEL_NAME__", String.valueOf(model.name)).replaceAll("__MODEL_ID__", String.valueOf(model.modelID))
 
-		  .replaceAll("__AWARD__", getRequestAttribute(request, "award" + httpParameterPostTag).trim()));
+		  .replaceAll("__AWARD__", ServletUtil.getRequestAttribute(request, "award" + httpParameterPostTag).trim()));
 	}
 
 	writeResponse(response, buff);
@@ -2378,7 +2220,7 @@ public class RegistrationServlet extends HttpServlet
 	  throws Exception
   {
 	final StringBuffer buff = new StringBuffer();
-	final String languageCode = getRequestAttribute(request, "language");
+	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
 	final ResourceBundle language = getLanguage(languageCode);
 
 	final StringBuffer categoriesBuff = new StringBuffer();
@@ -2426,30 +2268,32 @@ public class RegistrationServlet extends HttpServlet
   private User createUser(final HttpServletRequest request, final String email, final String httpParameterPostTag)
 	  throws Exception
   {
-	return createUser(request, email, getRequestAttribute(request, "password" + httpParameterPostTag), httpParameterPostTag);
+	return createUser(request, email, ServletUtil.getRequestAttribute(request, "password" + httpParameterPostTag),
+	    httpParameterPostTag);
   }
 
   private User createUser(final HttpServletRequest request, final String email, final String password,
 	  final String httpParameterPostTag) throws Exception
   {
 	// check if all data is sent
-	getRequestAttribute(request, "language");
+	ServletUtil.getRequestAttribute(request, "language");
 
-	getRequestAttribute(request, "firstname" + httpParameterPostTag);
-	getRequestAttribute(request, "lastname" + httpParameterPostTag);
-	getRequestAttribute(request, "country" + httpParameterPostTag);
-	getOptionalRequestAttribute(request, "city" + httpParameterPostTag);
-	getOptionalRequestAttribute(request, "address" + httpParameterPostTag);
-	getOptionalRequestAttribute(request, "telephone" + httpParameterPostTag);
+	ServletUtil.getRequestAttribute(request, "firstname" + httpParameterPostTag);
+	ServletUtil.getRequestAttribute(request, "lastname" + httpParameterPostTag);
+	ServletUtil.getRequestAttribute(request, "country" + httpParameterPostTag);
+	ServletUtil.getOptionalRequestAttribute(request, "city" + httpParameterPostTag);
+	ServletUtil.getOptionalRequestAttribute(request, "address" + httpParameterPostTag);
+	ServletUtil.getOptionalRequestAttribute(request, "telephone" + httpParameterPostTag);
 
-	getRequestAttribute(request, "yearofbirth" + httpParameterPostTag);
+	ServletUtil.getRequestAttribute(request, "yearofbirth" + httpParameterPostTag);
 
-	return new User(servletDAO.getNextID("USERS", "USER_ID"), password, getRequestAttribute(request, "firstname"
-	    + httpParameterPostTag), getRequestAttribute(request, "lastname" + httpParameterPostTag), getRequestAttribute(request,
-	    "language"), getOptionalRequestAttribute(request, "address" + httpParameterPostTag), getOptionalRequestAttribute(request,
-	    "telephone" + httpParameterPostTag), email, true, getRequestAttribute(request, "country" + httpParameterPostTag),
-	    Integer.parseInt(getRequestAttribute(request, "yearofbirth" + httpParameterPostTag)), getOptionalRequestAttribute(
-	        request, "city" + httpParameterPostTag));
+	return new User(servletDAO.getNextID("USERS", "USER_ID"), password, ServletUtil.getRequestAttribute(request, "firstname"
+	    + httpParameterPostTag), ServletUtil.getRequestAttribute(request, "lastname" + httpParameterPostTag),
+	    ServletUtil.getRequestAttribute(request, "language"), ServletUtil.getOptionalRequestAttribute(request, "address"
+	        + httpParameterPostTag), ServletUtil.getOptionalRequestAttribute(request, "telephone" + httpParameterPostTag), email,
+	    true, ServletUtil.getRequestAttribute(request, "country" + httpParameterPostTag), Integer.parseInt(ServletUtil
+	        .getRequestAttribute(request, "yearofbirth" + httpParameterPostTag)), ServletUtil.getOptionalRequestAttribute(
+	        request, "city" + httpParameterPostTag), new LinkedList<ModelClass>());
   }
 
   class ExceptionData
@@ -2594,5 +2438,27 @@ public class RegistrationServlet extends HttpServlet
   public static boolean isPreRegistrationAllowed()
   {
 	return preRegistrationAllowed;
+  }
+
+  public void process_loadImageRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  {
+	response.setContentType("image/jpeg");
+
+	try
+	{
+	  loadImage(Integer.parseInt(ServletUtil.getRequestAttribute(request, "modelID")), response.getOutputStream());
+	}
+	catch (final Exception e)
+	{
+	}
+  }
+
+  private void loadImage(int modelID, OutputStream o) throws SQLException, IOException
+  {
+	final byte[] loadImage = servletDAO.loadImage(modelID);
+
+	o.write(loadImage);
+	o.flush();
+	o.close();
   }
 }

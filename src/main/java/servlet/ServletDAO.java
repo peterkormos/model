@@ -2,7 +2,10 @@ package servlet;
 
 import java.io.IOError;
 import java.io.IOException;
+import java.io.InputStream;
+import java.sql.Blob;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -13,21 +16,28 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
+import java.util.StringTokenizer;
 
 import javax.servlet.http.HttpServletRequest;
 
+import datatype.AgeGroup;
 import datatype.AwardedModel;
 import datatype.Category;
 import datatype.CategoryGroup;
 import datatype.Detailing;
 import datatype.Model;
+import datatype.ModelClass;
 import datatype.User;
 
 public class ServletDAO
 {
   private final RegistrationServlet registrationServlet;
-  private final Connection dbConnection;
   private final Map<Integer, String> charEncodeMap;
+
+  private final String dbURL;
+  private final String dbUserName;
+  private final String dbPassword;
+  private Connection dBConnection;
 
   public final static int INVALID_USERID = -1;
 
@@ -36,10 +46,24 @@ public class ServletDAO
 	REGISTRATION, ONSITEUSE, SYSTEMMESSAGE
   };
 
-  public ServletDAO(final RegistrationServlet registrationServlet, final Connection dbConnection)
+  private Connection getDBConnection() throws SQLException
   {
+	if (this.dBConnection == null || this.dBConnection.isClosed())
+	{
+	  this.dBConnection = DriverManager.getConnection(dbURL, dbUserName, dbPassword);
+	  this.dBConnection.setAutoCommit(true);
+	}
+
+	return this.dBConnection;
+  }
+
+  public ServletDAO(RegistrationServlet registrationServlet, String dbURL, String dbUserName, String dbPassword)
+	  throws SQLException
+  {
+	this.dbURL = dbURL;
+	this.dbUserName = dbUserName;
+	this.dbPassword = dbPassword;
 	this.registrationServlet = registrationServlet;
-	this.dbConnection = dbConnection;
 
 	charEncodeMap = new HashMap<Integer, String>();
 	charEncodeMap.put(192, "&Agrave;");
@@ -123,7 +147,7 @@ public class ServletDAO
 
 	value = value.replaceAll("\"", "'");
 
-	value = new String(value.getBytes("ISO-8859-1"), "UTF-8");
+	//	value = new String(value.getBytes("ISO-8859-1"), "UTF-8");
 	final StringBuffer buff = new StringBuffer();
 
 	char ch;
@@ -183,10 +207,11 @@ public class ServletDAO
 		deleteEntry("MAK_USERS", "user_id", user.userID);
 	  }
 
-	  queryStatement = dbConnection
-		  .prepareStatement("insert into MAK_USERS "
-		      + "(USER_ID, USER_PASSWORD, FIRST_NAME, LAST_NAME, USER_LANGUAGE, COUNTRY, ADDRESS, TELEPHONE, EMAIL, YEAR_OF_BIRTH, CITY, USER_ENABLED) values "
-		      + "(?,?,?,?,?,?,?,?,?,?,?,1)");
+	  queryStatement = getDBConnection()
+		  .prepareStatement(
+		      "insert into MAK_USERS "
+		          + "(USER_ID, USER_PASSWORD, FIRST_NAME, LAST_NAME, USER_LANGUAGE, COUNTRY, ADDRESS, TELEPHONE, EMAIL, YEAR_OF_BIRTH, CITY, USER_ENABLED) values "
+		          + "(?,?,?,?,?,?,?,?,?,?,?,1)");
 
 	  queryStatement.setInt(1, user.userID);
 	  encodeStringForDB(queryStatement, 2, user.password);
@@ -223,7 +248,8 @@ public class ServletDAO
 	ResultSet rs = null;
 	try
 	{
-	  PreparedStatement queryStatement = dbConnection.prepareStatement("select count(*) from MAK_USERS where EMAIL = ?");
+	  final PreparedStatement queryStatement = getDBConnection().prepareStatement(
+		  "select count(*) from MAK_USERS where EMAIL = ?");
 	  encodeStringForDB(queryStatement, 1, email);
 	  rs = queryStatement.executeQuery();
 	  rs.next();
@@ -254,8 +280,10 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("insert into MAK_CATEGORY"
-		  + " (CATEGORY_ID, CATEGORY_CODE, CATEGORY_DESCRIPTION, CATEGORY_GROUP_ID) values " + "(?,?,?,?)");
+	  queryStatement = getDBConnection().prepareStatement(
+		  "insert into MAK_CATEGORY"
+		      + " (CATEGORY_ID, CATEGORY_CODE, CATEGORY_DESCRIPTION, CATEGORY_GROUP_ID, MASTER, MODEL_CLASS,ageGroup) values "
+		      + "(?,?,?,?,?,?,?)");
 
 	  registrationServlet.logger.debug("ServletDAO.saveCategory(): categoryID: " + category.categoryID);
 
@@ -263,6 +291,9 @@ public class ServletDAO
 	  encodeStringForDB(queryStatement, 2, category.categoryCode);
 	  encodeStringForDB(queryStatement, 3, category.categoryDescription);
 	  queryStatement.setInt(4, category.group.categoryGroupID);
+	  queryStatement.setInt(5, category.isMaster() ? 1 : 0);
+	  queryStatement.setString(6, category.getModelClass().name());
+	  queryStatement.setString(7, category.getAgeGroup().name());
 
 	  queryStatement.executeUpdate();
 
@@ -299,7 +330,7 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("SELECT * FROM MAK_AWARDEDMODELS");
+	  queryStatement = getDBConnection().prepareStatement("SELECT * FROM MAK_AWARDEDMODELS");
 
 	  rs = queryStatement.executeQuery();
 
@@ -338,8 +369,9 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("SELECT * FROM MAK_CATEGORY"
-		  + (CATEGORY_group_ID == 0 ? "" : " WHERE CATEGORY_group_ID = " + CATEGORY_group_ID) + " order by CATEGORY_CODE");
+	  queryStatement = getDBConnection().prepareStatement(
+		  "SELECT * FROM MAK_CATEGORY" + (CATEGORY_group_ID == 0 ? "" : " WHERE CATEGORY_group_ID = " + CATEGORY_group_ID)
+		      + " order by CATEGORY_CODE");
 
 	  rs = queryStatement.executeQuery();
 
@@ -348,7 +380,8 @@ public class ServletDAO
 	  while (rs.next())
 	  {
 		final Category category = new Category(rs.getInt("CATEGORY_ID"), decodeStringFromDB(rs, "CATEGORY_CODE"),
-		    decodeStringFromDB(rs, "CATEGORY_DESCRIPTION"), getCategoryGroup(rs.getInt("CATEGORY_GROUP_ID"), groups));
+		    decodeStringFromDB(rs, "CATEGORY_DESCRIPTION"), getCategoryGroup(rs.getInt("CATEGORY_GROUP_ID"), groups),
+		    rs.getInt("MASTER") == 1, ModelClass.valueOf(rs.getString("MODEL_CLASS")), AgeGroup.valueOf(rs.getString("ageGroup")));
 
 		if (show == null || category.group.show.equals(show))
 		{
@@ -404,7 +437,7 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("SELECT * FROM MAK_CATEGORY_GROUP");
+	  queryStatement = getDBConnection().prepareStatement("SELECT * FROM MAK_CATEGORY_GROUP");
 
 	  rs = queryStatement.executeQuery();
 
@@ -445,7 +478,7 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("SELECT distinct MODEL_SHOW FROM MAK_CATEGORY_GROUP");
+	  queryStatement = getDBConnection().prepareStatement("SELECT distinct MODEL_SHOW FROM MAK_CATEGORY_GROUP");
 
 	  rs = queryStatement.executeQuery();
 
@@ -483,8 +516,8 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection
-		  .prepareStatement("SELECT * FROM MAK_USERS where USER_enabled=1 order by LAST_NAME, FIRST_NAME");
+	  queryStatement = getDBConnection().prepareStatement(
+		  "SELECT * FROM MAK_USERS where USER_enabled=1 order by LAST_NAME, FIRST_NAME");
 
 	  rs = queryStatement.executeQuery();
 
@@ -525,7 +558,7 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("insert into MAK_AWARDEDMODELS" + " (MODEL_ID, AWARD) values (?,?)");
+	  queryStatement = getDBConnection().prepareStatement("insert into MAK_AWARDEDMODELS" + " (MODEL_ID, AWARD) values (?,?)");
 
 	  queryStatement.setInt(1, model.model.modelID);
 
@@ -563,16 +596,17 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection
-		  .prepareStatement("insert into MAK_MODEL"
-		      + " (MODEL_ID, USER_ID, CATEGORY_ID, MODEL_SCALE, MODEL_NAME, PRODUCER, COMMENTS, "
-		      + "IDENTIFICATION, MARKINGS, GLUEDTOBASE, "
-		      + "SCRATCH_EXTERNALSURFACE, SCRATCH_COCKPIT, SCRATCH_ENGINE, SCRATCH_UNDERCARRIAGE, SCRATCH_GEARBAY, SCRATCH_ARMAMENT, SCRATCH_CONVERSION, "
-		      + "PHOTOETCHED_EXTERNALSURFACE, PHOTOETCHED_COCKPIT, PHOTOETCHED_ENGINE, PHOTOETCHED_UNDERCARRIAGE, PHOTOETCHED_GEARBAY, PHOTOETCHED_ARMAMENT, PHOTOETCHED_CONVERSION, "
-		      + "RESIN_EXTERNALSURFACE, RESIN_COCKPIT, RESIN_ENGINE, RESIN_UNDERCARRIAGE, RESIN_GEARBAY, RESIN_ARMAMENT, RESIN_CONVERSION, "
-		      + "DOCUMENTATION_EXTERNALSURFACE, DOCUMENTATION_COCKPIT, DOCUMENTATION_ENGINE, DOCUMENTATION_UNDERCARRIAGE, DOCUMENTATION_GEARBAY, DOCUMENTATION_ARMAMENT, DOCUMENTATION_CONVERSION)"
-		      + " values " + "(?,?,?,?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?"
-		      + ")");
+	  queryStatement = getDBConnection()
+		  .prepareStatement(
+		      "insert into MAK_MODEL"
+		          + " (MODEL_ID, USER_ID, CATEGORY_ID, MODEL_SCALE, MODEL_NAME, PRODUCER, COMMENTS, "
+		          + "IDENTIFICATION, MARKINGS, GLUEDTOBASE, "
+		          + "SCRATCH_EXTERNALSURFACE, SCRATCH_COCKPIT, SCRATCH_ENGINE, SCRATCH_UNDERCARRIAGE, SCRATCH_GEARBAY, SCRATCH_ARMAMENT, SCRATCH_CONVERSION, "
+		          + "PHOTOETCHED_EXTERNALSURFACE, PHOTOETCHED_COCKPIT, PHOTOETCHED_ENGINE, PHOTOETCHED_UNDERCARRIAGE, PHOTOETCHED_GEARBAY, PHOTOETCHED_ARMAMENT, PHOTOETCHED_CONVERSION, "
+		          + "RESIN_EXTERNALSURFACE, RESIN_COCKPIT, RESIN_ENGINE, RESIN_UNDERCARRIAGE, RESIN_GEARBAY, RESIN_ARMAMENT, RESIN_CONVERSION, "
+		          + "DOCUMENTATION_EXTERNALSURFACE, DOCUMENTATION_COCKPIT, DOCUMENTATION_ENGINE, DOCUMENTATION_UNDERCARRIAGE, DOCUMENTATION_GEARBAY, DOCUMENTATION_ARMAMENT, DOCUMENTATION_CONVERSION)"
+		          + " values " + "(?,?,?,?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?"
+		          + ",?,?,?,?,?,?,?" + ")");
 
 	  queryStatement.setInt(1, model.modelID);
 
@@ -590,9 +624,9 @@ public class ServletDAO
 	  int statementCounter = 11;
 	  for (int i = 0; i < Detailing.DETAILING_GROUPS.length; i++)
 	  {
-		for (int j = 0; j < model.detailing[i].criterias.length; j++)
+		for (int j = 0; j < model.detailing[i].criterias.size(); j++)
 		{
-		  queryStatement.setInt(statementCounter++, model.detailing[i].criterias[j] ? 1 : 0);
+		  queryStatement.setInt(statementCounter++, model.detailing[i].criterias.get(j) ? 1 : 0);
 		}
 	  }
 
@@ -626,7 +660,7 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("SELECT max(" + column + ") FROM MAK_" + table);
+	  queryStatement = getDBConnection().prepareStatement("SELECT max(" + column + ") FROM MAK_" + table);
 
 	  rs = queryStatement.executeQuery();
 	  rs.next();
@@ -663,12 +697,60 @@ public class ServletDAO
 	}
   }
 
+  public void saveModelClass(int userID, ModelClass modelClass) throws Exception
+  {
+	final User user = getUser(userID);
+	user.getModelClass().add(modelClass);
+
+	String modelClasses = "";
+	for (final ModelClass currentModelClass : user.getModelClass())
+	{
+	  modelClasses += currentModelClass.name() + ",";
+	}
+	PreparedStatement queryStatement = null;
+
+	try
+	{
+	  queryStatement = getDBConnection().prepareStatement("update MAK_USERS set MODEL_CLASS=? where USER_ID=?");
+
+	  queryStatement.setString(1, modelClasses);
+	  queryStatement.setInt(2, userID);
+
+	  queryStatement.executeUpdate();
+	}
+	finally
+	{
+	  try
+	  {
+		if (queryStatement != null)
+		{
+		  queryStatement.close();
+		}
+	  }
+	  catch (final Exception ex)
+	  {
+		registrationServlet.logger.fatal("!!! ServletDAO.saveModelClass(): userId: " + userID + " modelClass: " + modelClass, ex);
+	  }
+	}
+  }
+
   public User getUser(final ResultSet rs) throws Exception
   {
+	final List<ModelClass> modelClasses = new LinkedList<ModelClass>();
+	if (rs.getString("MODEL_CLASS") != null)
+	{
+	  final StringTokenizer mc = new StringTokenizer(rs.getString("MODEL_CLASS"), ",");
+
+	  while (mc.hasMoreTokens())
+	  {
+		modelClasses.add(ModelClass.valueOf(mc.nextToken()));
+	  }
+	}
+
 	return new User(rs.getInt("USER_ID"), decodeStringFromDB(rs, "USER_PASSWORD"), decodeStringFromDB(rs, "FIRST_NAME"),
 	    decodeStringFromDB(rs, "LAST_NAME"), decodeStringFromDB(rs, "USER_LANGUAGE"), decodeStringFromDB(rs, "ADDRESS"),
 	    decodeStringFromDB(rs, "TELEPHONE"), decodeStringFromDB(rs, "EMAIL"), rs.getBoolean("USER_ENABLED"), decodeStringFromDB(
-	        rs, "COUNTRY"), rs.getInt("YEAR_OF_BIRTH"), decodeStringFromDB(rs, "CITY"));
+	        rs, "COUNTRY"), rs.getInt("YEAR_OF_BIRTH"), decodeStringFromDB(rs, "CITY"), modelClasses);
   }
 
   public User getUser(String email) throws Exception
@@ -681,7 +763,7 @@ public class ServletDAO
 	  // for SQL inject
 	  email = email.replace(';', ' ').replace('(', ' ').replace(')', ' ').replace('\'', ' ').replace(';', ' ');
 
-	  queryStatement = dbConnection.prepareStatement("SELECT * FROM MAK_USERS where EMAIL = ?");
+	  queryStatement = getDBConnection().prepareStatement("SELECT * FROM MAK_USERS where EMAIL = ?");
 
 	  encodeStringForDB(queryStatement, 1, email);
 
@@ -721,7 +803,7 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("SELECT * FROM MAK_USERS where USER_ID = ?");
+	  queryStatement = getDBConnection().prepareStatement("SELECT * FROM MAK_USERS where USER_ID = ?");
 
 	  queryStatement.setInt(1, userID);
 
@@ -774,7 +856,7 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("SELECT * FROM MAK_SYSTEM where PARAM_NAME = '" + parameter + "'");
+	  queryStatement = getDBConnection().prepareStatement("SELECT * FROM MAK_SYSTEM where PARAM_NAME = '" + parameter + "'");
 
 	  rs = queryStatement.executeQuery();
 
@@ -813,7 +895,7 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("update MAK_SYSTEM set PARAM_VALUE=? where PARAM_NAME=?");
+	  queryStatement = getDBConnection().prepareStatement("update MAK_SYSTEM set PARAM_VALUE=? where PARAM_NAME=?");
 
 	  queryStatement.setString(1, parameterValue);
 	  queryStatement.setString(2, parameterName);
@@ -822,7 +904,7 @@ public class ServletDAO
 	  {
 		queryStatement.close();
 
-		queryStatement = dbConnection.prepareStatement("insert into MAK_SYSTEM (PARAM_VALUE, PARAM_NAME) values (?,?)");
+		queryStatement = getDBConnection().prepareStatement("insert into MAK_SYSTEM (PARAM_VALUE, PARAM_NAME) values (?,?)");
 		queryStatement.setString(1, parameterValue);
 		queryStatement.setString(2, parameterName);
 
@@ -852,7 +934,7 @@ public class ServletDAO
 
 	try
 	{
-	  if (registrationServlet.getRequestAttribute(request, httpParameter).length() != 0)
+	  if (ServletUtil.getRequestAttribute(request, httpParameter).length() != 0)
 	  {
 		if (where.length() != 0)
 		{
@@ -861,11 +943,11 @@ public class ServletDAO
 
 		if (stringParameter)
 		{
-		  where += sQLfield + " like '%" + registrationServlet.getRequestAttribute(request, httpParameter) + "%'";
+		  where += sQLfield + " like '%" + ServletUtil.getRequestAttribute(request, httpParameter) + "%'";
 		}
 		else
 		{
-		  where += sQLfield + " = '" + registrationServlet.getRequestAttribute(request, httpParameter) + "'";
+		  where += sQLfield + " = '" + ServletUtil.getRequestAttribute(request, httpParameter) + "'";
 		}
 	  }
 	}
@@ -909,8 +991,8 @@ public class ServletDAO
 	{
 	  registrationServlet.logger.trace("ServletDAO.getModels(): where: " + where);
 
-	  queryStatement = dbConnection.prepareStatement("SELECT * FROM MAK_MODEL" + (where.length() == 0 ? "" : " where " + where)
-		  + " order by MODEL_ID");
+	  queryStatement = getDBConnection().prepareStatement(
+		  "SELECT * FROM MAK_MODEL" + (where.length() == 0 ? "" : " where " + where) + " order by MODEL_ID");
 
 	  rs = queryStatement.executeQuery();
 
@@ -954,7 +1036,7 @@ public class ServletDAO
 	{
 	  registrationServlet.logger.trace("ServletDAO.getModel(): modelID: " + modelID);
 
-	  queryStatement = dbConnection.prepareStatement("SELECT * FROM MAK_MODEL where MODEL_ID=" + modelID);
+	  queryStatement = getDBConnection().prepareStatement("SELECT * FROM MAK_MODEL where MODEL_ID=" + modelID);
 
 	  rs = queryStatement.executeQuery();
 	  if (rs.next())
@@ -997,9 +1079,16 @@ public class ServletDAO
 	{
 	  final String group = Detailing.DETAILING_GROUPS[i];
 
-	  detailing[i] = new Detailing(group, new boolean[] { rs.getInt(group + "_externalSurface") == 1,
-		  rs.getInt(group + "_cockpit") == 1, rs.getInt(group + "_engine") == 1, rs.getInt(group + "_undercarriage") == 1,
-		  rs.getInt(group + "_gearBay") == 1, rs.getInt(group + "_armament") == 1, rs.getInt(group + "_conversion") == 1 });
+	  List<Boolean> criterias = new LinkedList<Boolean>();
+	  criterias.add(rs.getInt(group + "_externalSurface") == 1);
+
+	  criterias.add(rs.getInt(group + "_cockpit") == 1);
+	  criterias.add(rs.getInt(group + "_engine") == 1);
+	  criterias.add(rs.getInt(group + "_undercarriage") == 1);
+	  criterias.add(rs.getInt(group + "_gearBay") == 1);
+	  criterias.add(rs.getInt(group + "_armament") == 1);
+	  criterias.add(rs.getInt(group + "_conversion") == 1);
+	  detailing[i] = new Detailing(group, criterias);
 	}
 
 	return detailing;
@@ -1043,8 +1132,8 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("delete from " + table
-		  + (idField == null ? "" : " where " + idField + " = ?"));
+	  queryStatement = getDBConnection().prepareStatement(
+		  "delete from " + table + (idField == null ? "" : " where " + idField + " = ?"));
 
 	  if (idField != null)
 	  {
@@ -1086,9 +1175,10 @@ public class ServletDAO
 	  // aktiv kategoriak
 	  final List<Category> categories = getCategoryList(show);
 
+	  returned.add(new String[] { "<b>Verseny</b>", show });
 	  returned.add(new String[] { "Kateg&oacute;ri&aacute;k sz&aacute;ma: ", String.valueOf(categories.size()) });
 
-	  returned.add(new String[] { "|", "|" });
+	  returned.add(new String[] { "|", "" });
 	  final List<User> users = getUsers();
 	  final Map<String, HashSet<Integer>> activeModelers = new HashMap<String, HashSet<Integer>>();
 
@@ -1104,8 +1194,8 @@ public class ServletDAO
 		final List<Model> models = getModelsInCategory(category.categoryID);
 
 		returned.add(new String[] {
-		    "<b>&Ouml;ssz makett kateg&oacute;ri&aacute;nk&eacute;nt (" + category.group.show + " - " + category.categoryCode
-		        + " - " + category.categoryDescription + "):</b> ", String.valueOf(models.size()) });
+		    "Makettek sz&aacute;ma [<b>" + category.categoryCode + " - " + category.categoryDescription
+		        + "</b>] kateg&oacute;ri&aacute;ban: ", String.valueOf(models.size()) });
 
 		// benevezett makettek szama
 		allModels += models.size();
@@ -1130,12 +1220,13 @@ public class ServletDAO
 		}
 	  }
 
-	  returned.add(new String[] { "|", "|" });
+	  returned.add(new String[] { "|", "" });
 
 	  // benevezett makettek szama
 	  returned.add(new String[] { "Benevezett makettek sz&aacute;ma: ", String.valueOf(allModels) });
+	  returned.add(new String[] { "Felt&ouml;lt&ouml;tt k&eacute;pek sz&aacute;ma: ", simpleQuery("count(*)", "MAK_PICTURES") });
 
-	  returned.add(new String[] { "|", "|" });
+	  returned.add(new String[] { "|", "" });
 
 	  // ossz regisztralt felhasznalo
 	  int modelers = 0;
@@ -1149,11 +1240,11 @@ public class ServletDAO
 	  // jelenleg nevezok
 	  for (final String country : activeModelers.keySet())
 	  {
-		returned.add(new String[] { "<b>Jelenleg nevez&otilde;k ebb&otilde;l az orsz&aacute;gb&oacute;l:</b> " + country,
+		returned.add(new String[] { "Jelenleg nevez&otilde;k ebb&otilde;l az orsz&aacute;gb&oacute;l: <b>" + country + "</b>",
 		    String.valueOf(activeModelers.get(country).size()) });
 	  }
 
-	  // queryStatement = dbConnection
+	  // queryStatement = getDBConnection()
 	  // .prepareStatement("SELECT count(*) FROM MAK_USERS");
 	  // rs = queryStatement.executeQuery();
 	  // rs.next();
@@ -1163,7 +1254,7 @@ public class ServletDAO
 	  // rs.close();
 	  // queryStatement.close();
 	  //
-	  // queryStatement = dbConnection
+	  // queryStatement = getDBConnection()
 	  // .prepareStatement("select COUNTRY, count(*)  from MAK_USERS group by COUNTRY order by COUNTRY");
 	  // rs = queryStatement.executeQuery();
 	  // while (rs.next())
@@ -1200,17 +1291,18 @@ public class ServletDAO
 
   public void deleteModel(final HttpServletRequest request) throws Exception
   {
-	deleteModel(Integer.valueOf(registrationServlet.getRequestAttribute(request, "modelID")));
+	deleteModel(Integer.valueOf(ServletUtil.getRequestAttribute(request, "modelID")));
   }
 
   public void deleteModel(final int id) throws Exception
   {
 	deleteEntry("MAK_MODEL", "model_id", id);
+	deleteEntry("MAK_PICTURES", "model_id", id);
   }
 
   public void deleteAwardedModel(final HttpServletRequest request) throws Exception
   {
-	deleteAwardedModel(Integer.valueOf(registrationServlet.getRequestAttribute(request, "modelID")));
+	deleteAwardedModel(Integer.valueOf(ServletUtil.getRequestAttribute(request, "modelID")));
   }
 
   public void deleteAwardedModel(final int id) throws Exception
@@ -1220,7 +1312,7 @@ public class ServletDAO
 
   public void deleteCategory(final HttpServletRequest request) throws Exception
   {
-	deleteCategory(Integer.valueOf(registrationServlet.getRequestAttribute(request, "categoryID")));
+	deleteCategory(Integer.valueOf(ServletUtil.getRequestAttribute(request, "categoryID")));
   }
 
   public void deleteCategory(final int id) throws Exception
@@ -1235,7 +1327,7 @@ public class ServletDAO
 
   public void deleteCategoryGroup(final HttpServletRequest request) throws Exception
   {
-	deleteCategoryGroup(Integer.valueOf(registrationServlet.getRequestAttribute(request, "categoryGroupID")));
+	deleteCategoryGroup(Integer.valueOf(ServletUtil.getRequestAttribute(request, "categoryGroupID")));
   }
 
   public void deleteCategoryGroup(final int id) throws Exception
@@ -1297,7 +1389,7 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("update MAK_USERS set USER_ID=? where EMAIL=? AND USER_ID=?");
+	  queryStatement = getDBConnection().prepareStatement("update MAK_USERS set USER_ID=? where EMAIL=? AND USER_ID=?");
 
 	  queryStatement.setInt(1, newUserID);
 	  queryStatement.setString(2, email);
@@ -1330,7 +1422,7 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("update MAK_MODEL set USER_ID=? where USER_ID=?");
+	  queryStatement = getDBConnection().prepareStatement("update MAK_MODEL set USER_ID=? where USER_ID=?");
 
 	  queryStatement.setInt(1, newUserID);
 	  queryStatement.setInt(2, oldUserID);
@@ -1361,8 +1453,8 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = dbConnection
-		  .prepareStatement("insert into MAK_CATEGORY_GROUP (CATEGORY_GROUP_ID, MODEL_SHOW, CATEGORY_GROUP) values " + "(?,?,?)");
+	  queryStatement = getDBConnection().prepareStatement(
+		  "insert into MAK_CATEGORY_GROUP (CATEGORY_GROUP_ID, MODEL_SHOW, CATEGORY_GROUP) values " + "(?,?,?)");
 
 	  registrationServlet.logger.debug("ServletDAO.saveCategoryGroup(): categoryID: " + categoryGroup.categoryGroupID);
 
@@ -1401,7 +1493,7 @@ public class ServletDAO
 	try
 	{
 	  registrationServlet.logger.debug("ServletDAO.execute(): " + sql);
-	  queryStatement = dbConnection.prepareStatement(sql);
+	  queryStatement = getDBConnection().prepareStatement(sql);
 	  if (sql.toLowerCase().indexOf("select") > -1)
 	  {
 		rs = queryStatement.executeQuery(sql);
@@ -1462,7 +1554,7 @@ public class ServletDAO
 	final List<User> returned = new LinkedList<User>();
 	try
 	{
-	  queryStatement = dbConnection.prepareStatement("SELECT * FROM MAK_USERS where LAST_NAME like '%" + lastname + "%'");
+	  queryStatement = getDBConnection().prepareStatement("SELECT * FROM MAK_USERS where LAST_NAME like '%" + lastname + "%'");
 
 	  rs = queryStatement.executeQuery();
 
@@ -1492,4 +1584,106 @@ public class ServletDAO
 	return returned;
   }
 
+  public void saveImage(int modelID, InputStream stream) throws Exception, IOException, SQLException
+  {
+	PreparedStatement ps = null;
+	try
+	{
+	  ps = getDBConnection().prepareStatement("delete from MAK_PICTURES where MODEL_ID=?");
+	  ps.setInt(1, modelID);
+	  ps.executeUpdate();
+	  ps.close();
+
+	  ps = getDBConnection().prepareStatement("INSERT INTO MAK_PICTURES (MODEL_ID, PHOTO) VALUES (?, ?)");
+	  ps.setInt(1, modelID);
+	  ps.setBinaryStream(2, stream);
+	  ps.executeUpdate();
+	}
+	finally
+	{
+	  ps.close();
+	}
+  }
+
+  public byte[] loadImage(int modelID) throws SQLException
+  {
+	final PreparedStatement ps = getDBConnection().prepareStatement("select PHOTO from MAK_PICTURES where MODEL_ID=?");
+	ps.setInt(1, modelID);
+	final ResultSet resultSet = ps.executeQuery();
+
+	if (!resultSet.next())
+	{
+	  resultSet.close();
+	  ps.close();
+
+	  throw new IllegalStateException("Image not found. modelID: " + modelID);
+	}
+
+	final Blob blob = resultSet.getBlob(1);
+	final byte[] image = blob.getBytes(1, (int) blob.length());
+
+	resultSet.close();
+	ps.close();
+
+	return image;
+  }
+
+  public Map<Integer, byte[]> getPhotos() throws Exception
+  {
+	final Map<Integer, byte[]> photos = new HashMap<Integer, byte[]>();
+
+	for (final Model model : getModels(INVALID_USERID))
+	{
+	  try
+	  {
+		final byte[] loadedImage = loadImage(model.modelID);
+		registrationServlet.logger.debug("ServletDAO.loadImage(): model.modelID: " + model.modelID + " loadedImage.length: "
+		    + loadedImage.length);
+		photos.put(model.modelID, loadedImage);
+	  }
+	  catch (final Exception e)
+	  {
+	  }
+	}
+
+	return photos;
+  }
+
+  public String simpleQuery(final String field, String table) throws Exception
+  {
+	PreparedStatement queryStatement = null;
+	ResultSet rs = null;
+
+	try
+	{
+	  queryStatement = getDBConnection().prepareStatement("SELECT " + field + " FROM " + table);
+
+	  rs = queryStatement.executeQuery();
+
+	  if (rs.next())
+	  {
+		return rs.getString(1);
+	  }
+
+	  return "";
+	}
+	finally
+	{
+	  try
+	  {
+		if (rs != null)
+		{
+		  rs.close();
+		}
+		if (queryStatement != null)
+		{
+		  queryStatement.close();
+		}
+	  }
+	  catch (final Exception ex)
+	  {
+		registrationServlet.logger.fatal("!!! ServletDAO.simpleQuery(): ", ex);
+	  }
+	}
+  }
 }

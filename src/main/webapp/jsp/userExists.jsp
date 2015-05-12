@@ -5,7 +5,7 @@
 
 <%
 	RegistrationServlet servlet = RegistrationServlet.getInstance(config);
-	final String languageCode = servlet.getRequestAttribute(request, "language");
+	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
 	ResourceBundle language = servlet.getLanguage(languageCode);
 %>
 

@@ -4,95 +4,89 @@
 <%@page import="java.util.*"%>
 
 <%
-	RegistrationServlet servlet = RegistrationServlet.getInstance(config);
-	ServletDAO servletDAO = servlet.getServletDAO();
+  RegistrationServlet servlet = RegistrationServlet.getInstance(config);
+  ServletDAO servletDAO = servlet.getServletDAO();
 
-	final String languageCode = servlet.getRequestAttribute(request, "language");
-	ResourceBundle language = servlet.getLanguage(languageCode);
+  final String languageCode = ServletUtil.getRequestAttribute(request, "language");
+  ResourceBundle language = servlet.getLanguage(languageCode);
 %>
 
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 </head>
 
+<link rel="stylesheet" href="base.css" media="screen" />
+
 <body>
-<link href="css/base.css" rel="stylesheet" type="text/css" />
+	<form  name="input" 
+		action="../RegistrationServlet" method="post">
 
-Verzi&oacute;: <%= servlet.getVersion() %>
+		<input type="hidden" name="command" value="login"> <input
+			type="hidden" name="language" value="<%=languageCode%>">
+		<input type="hidden" name="language" value="<%=languageCode%>">
 
-<p>
-<p>
-
-<div class="header"></div>
-<form accept-charset="UTF-8" name="input" action="../RegistrationServlet" method="put">
-
-<input type="hidden" name="command" value="login"> 
-<input type="hidden" name="language" value="<%= languageCode %>">
-
-<p><FONT COLOR='#ff0000'><b><%= servlet.getSystemMessage() %></b></FONT></p>
-
-<table border="1">
-	<tr>
-		<td>
-		<table border="0">
-			<tr bgcolor='F6F4F0'>
-				<td><%= language.getString("show") %>:</td>
-				<td>
-<%
-	final List<String> shows = servletDAO.getShows();
-	for (final String show : shows)
-	{
-%>	
-	  <input type='radio' name='show' value='<%= show %>' <%= (shows.size() == 1 ? " checked='checked'" : "") %> />
-	  <FONT COLOR='#ff0000'><b> <%= show %></b></FONT><br>
-<%	}
-
-%>
-				</td>
-			</tr>
+		<table border="0" height="100%" width="100%">
 			<tr>
-				<td><FONT COLOR='#ff0000'><b><%= language.getString("email") %></b></FONT>:</td>
-				<td><input type="text" name="email"></td>
-			</tr>
-			<tr bgcolor='F6F4F0'>
-				<td><%= language.getString("password") %>:</td>
-				<td><input type="password" name="password">
-				<p>
-				<a href="reminder.jsp?language=<%= languageCode %>"><%= language.getString("password.reminder") %></a>
-				</td>
-			</tr>
-			<tr>
-				<td colspan="2" align="center">
-					<input name="submit" type="submit" value="<%= language.getString("login") %>">
+				<td align="center" valign="middle">
+					<table border="0">
+						<tr>
+							<td colspan="2"><FONT COLOR='#ffffff'>Verzi&oacute;:
+									<%=servlet.getVersion()%></FONT></td>
+						</tr>
+						<tr>
+							<td colspan="2"><FONT COLOR='#ff0000'><b><%=servlet.getSystemMessage()%></b></FONT></td>
+						</tr>
+						<tr bgcolor='F6F4F0'>
+							<td><%=language.getString("show")%>:</td>
+							<td>
+								<%
+								  final List<String> shows = servletDAO.getShows();
+								  for (final String show : shows)
+								  {
+								%> <input type='radio' name='show' value='<%=show%>'
+								<%=(shows.size() == 1 ? " checked='checked'" : "")%> /> <FONT
+								COLOR='#ff0000'><b> <%=show%></b></FONT><br> <%
+   }
+ %>
+							</td>
+						</tr>
+						<tr>
+							<td><FONT COLOR='#ff0000'><b><%=language.getString("email")%></b></FONT>:</td>
+							<td><input type="text" name="email"></td>
+						</tr>
+						<tr bgcolor='F6F4F0'>
+							<td><%=language.getString("password")%>:</td>
+							<td><input type="password" name="password">
+								<p>
+									<a href="reminder.jsp?language=<%=languageCode%>"><%=language.getString("password.reminder")%></a></td>
+						</tr>
+						<tr>
+							<td colspan="2" align="center"><input name="submit"
+								type="submit" value="<%=language.getString("login")%>">
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">
+								<%
+								  if (!servlet.isPreRegistrationAllowed())
+								  {
+								%> <strong><font color='#FF0000'>Model
+										pre-registration has been closed. You won't be able to add or
+										modify your models! <br> - <br> A makett
+										el&otilde;nevez&eacute;s lez&aacute;rult. A makettek
+										felv&eacute;tele &eacute;s m&oacute;dos&iacute;t&aacute;sa
+										ezut&aacute;n m&aacute;r nem lehets&eacute;ges!
+								</font></strong> <%
+   }
+ %>
+							</td>
+						</tr>
+					</table>
 				</td>
 			</tr>
 		</table>
-		</td>
-	</tr>
-</table>
-<%
-	if (!servlet.isPreRegistrationAllowed())
-	{
-%>
-	  <p> 
-	  <strong><font color='#FF0000'>Model pre-registration has been closed. 
-	  You won't be able to add or modify your models!
-	  <br> 
-	  - 
-	  <br> 
-	  A makett el&otilde;nevez&eacute;s lez&aacute;rult. 
-	  A makettek felv&eacute;tele &eacute;s m&oacute;dos&iacute;t&aacute;sa ezut&aacute;n m&aacute;r nem lehets&eacute;ges! 
-	  </font></strong>
-	  <p>
-<%
-	}
-%>
 
-<p><FONT COLOR='#ff0000'><b><%= servlet.getSystemMessage() %></b></FONT></p>
-<p>
-</p>
-</form>
+	</form>
 </body>
 </html>
 

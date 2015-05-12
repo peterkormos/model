@@ -1,6 +1,10 @@
 package datatype;
 
-public class User
+import java.io.Serializable;
+import java.util.Calendar;
+import java.util.List;
+
+public class User implements Serializable
 {
   public int userID;
   public String password;
@@ -14,6 +18,9 @@ public class User
   public boolean enabled;
   public String language;
   public String country;
+  private List<ModelClass> modelClass;
+
+  public static final String LOCAL_USER = "_LOCAL_";
 
   public String getFullName()
   {
@@ -146,7 +153,7 @@ public class User
   }
 
   public User(int userID, String password, String firstname, String lastname, String language, String address, String telephone,
-	  String email, boolean enabled, String country, int yearOfBirth, String city)
+	  String email, boolean enabled, String country, int yearOfBirth, String city, List<ModelClass> modelClass)
   {
 	this.userID = userID;
 	this.password = password;
@@ -160,13 +167,34 @@ public class User
 	this.country = country;
 	this.yearOfBirth = yearOfBirth;
 	this.city = city;
+	this.modelClass = modelClass;
+  }
+
+  public List<ModelClass> getModelClass()
+  {
+	return modelClass;
+  }
+
+  public void setModelClass(List<ModelClass> modelClass)
+  {
+	this.modelClass = modelClass;
   }
 
   @Override
   public String toString()
   {
-	return " userID: " + userID + " password: " + password + " firstName: " + firstName + " lastName: " + lastName
-	    + " language: " + language + " address: " + address + " telephone: " + telephone + " email: " + email + " enabled: "
-	    + enabled + " country: " + country + " yearOfBirth: " + yearOfBirth + " city: " + city;
+	return "User [userID=" + userID + ", password=" + password + ", firstName=" + firstName + ", lastName=" + lastName
+	    + ", yearOfBirth=" + yearOfBirth + ", city=" + city + ", address=" + address + ", telephone=" + telephone + ", email="
+	    + email + ", enabled=" + enabled + ", language=" + language + ", country=" + country + ", modelClass=" + modelClass + "]";
+  }
+
+  public int getAge()
+  {
+	return Calendar.getInstance().get(Calendar.YEAR) - yearOfBirth;
+  }
+
+  public boolean isLocalUser()
+  {
+	return email.indexOf(LOCAL_USER) > -1;
   }
 }

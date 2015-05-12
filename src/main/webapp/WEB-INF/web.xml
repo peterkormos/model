@@ -5,8 +5,19 @@
 		<servlet-class>servlet.RegistrationServlet</servlet-class>
 	</servlet>
 
+    <servlet>
+        <servlet-name>JudgingServlet</servlet-name>
+        <servlet-class>servlet.JudgingServlet</servlet-class>
+    </servlet>
+
 	<servlet-mapping>
 		<servlet-name>RegistrationServlet</servlet-name>
-		<url-pattern>/RegistrationServlet</url-pattern>
+		<url-pattern>/RegistrationServlet/*</url-pattern>
 	</servlet-mapping>
+    
+	<servlet-mapping>
+		<servlet-name>JudgingServlet</servlet-name>
+		<url-pattern>/JudgingServlet/*</url-pattern>
+	</servlet-mapping>
+    
 </web-app>

@@ -4,59 +4,70 @@
 <%@page import="servlet.*"%>
 
 <%
-	//input parameters
-	String selectedValue = request.getParameter("selectedValue");
-	String selectedLabel = request.getParameter("selectedLabel");
-	boolean mandatory = Boolean.parseBoolean(request.getParameter("mandatory"));
+  //input parameters
+  String selectedValue = request.getParameter("selectedValue");
+  String selectedLabel = request.getParameter("selectedLabel");
+  boolean mandatory = Boolean.parseBoolean(request.getParameter("mandatory"));
 
-	final String show = (String) request.getSession().getAttribute("show");
-	RegistrationServlet servlet = RegistrationServlet.getInstance(config);
-	ServletDAO servletDAO = servlet.getServletDAO();
-	
+  final String show = (String) request.getSession().getAttribute("show");
+  RegistrationServlet servlet = RegistrationServlet.getInstance(config);
+  ServletDAO servletDAO = servlet.getServletDAO();
+
+  User user = RegistrationServlet.getUser(request);
 %>
 
 <div id='categories'>
-<select name='categoryID'>
+	<select name='categoryID'>
 
-<option value='<%= selectedValue %>'><%=  selectedLabel %></option>
+		<option value='<%=selectedValue%>'><%=selectedLabel%></option>
 
-<%
-	for (final CategoryGroup group : servletDAO.getCategoryGroups())
-	{
-	  if (show != null && !group.show.equals(show))
+		<%
+		  for (final CategoryGroup group : servletDAO.getCategoryGroups())
+		  {
+				if (show != null && !group.show.equals(show))
+				{
+				  // System.out.println(group.show + " " + show);
+				  continue;
+				}
+		%>
+		<optgroup label='<%=group.show%> - <%=group.name%>'>
+			<%
+			  for (final Category category : servletDAO.getCategoryList(show))
+					{
+					  if (category.group.categoryGroupID != group.categoryGroupID)
+					  {
+						continue;
+					  }
+
+					  if (user.getModelClass().contains(category.getModelClass()) && !category.isMaster())
+					  {
+						continue;
+					  }
+
+					  if (!category.getAgeGroup().contains(AgeGroup.get(user.getAge())))
+					  { 
+						continue;
+					  }
+			%>
+			<option value='<%=category.categoryID%>'>
+				<%=category.categoryCode + " - " + category.categoryDescription%>
+			</option>
+
+			<%
+			  }
+			%>
+		</optgroup>
+		<%
+		  }
+		%>
+	</select>
+
+	<%
+	  if (mandatory)
 	  {
-		// System.out.println(group.show + " " + show);
-		continue;
+	%>
+	<font color='#FF0000' size='+3'>&#8226;</font>
+	<%
 	  }
-%>
-	  <optgroup label='<%= group.show %> - <%= group.name %>'>
-<%
-	  for (final Category category : servletDAO.getCategoryList(show))
-	  {
-		if (category.group.categoryGroupID != group.categoryGroupID)
-		{
-		  continue;
-		}
-%>
-	<option value='<%= category.categoryID %>'>
-		<%= category.categoryCode + " - " + category.categoryDescription%>
-	</option>
-
-<%
-	  }
-%>
-	  </optgroup>
-<%
-	}
-%>
-</select>
-
-<%
-	if (mandatory)
-	{
-%>
-	  <font color='#FF0000' size='+3'>&#8226;</font> 
-<%
-	}
-%>
+	%>
 </div>

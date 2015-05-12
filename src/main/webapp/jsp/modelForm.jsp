@@ -23,10 +23,12 @@
 
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 </head>
+
+<link rel="stylesheet" href="base.css" media="screen" />
+
 <body>
-<form accept-charset="UTF-8" name='input' action='../RegistrationServlet' method='put'>
+<form name='input' action='../RegistrationServlet' method='POST'>
 <input type='hidden' name='command' value='<%= action %>'>
 
 	<!-- modelID for modify...-->
@@ -139,11 +141,7 @@ String modelproducer = model == null ? "" : model.producer;
 <%=language.getString("comment")%>
 : 
 </td>
-<td><textarea name='modelcomment' cols='50' rows='10'>
-
-<%=  (model != null) ? model.comment : "" %>
-
-</textarea></td>
+<td><textarea name='modelcomment' cols='50' rows='10' placeholder="Max. 1000 char."><%=  (model != null) ? model.comment : "" %></textarea></td>
 </tr>
 
 	<!--	submit-->
@@ -223,7 +221,7 @@ String modelidentification = model == null ? "" : model.identification;
 	  {
 %>
 	<td><input name='<%= "detailing." + Detailing.DETAILING_GROUPS[j] + "." + Detailing.DETAILING_CRITERIAS[i] %>' 
-	type='checkbox' value='on' <%= (model == null || !model.detailing[j].criterias[i] ? "" : "checked='checked'")%> ></td>
+	type='checkbox' value='on' <%= (model == null || !model.detailing[j].criterias.get(i) ? "" : "checked='checked'")%> ></td>
 <%	
 	  }
 %>

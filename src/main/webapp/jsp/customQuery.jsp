@@ -10,8 +10,7 @@
 %>
 
 <html><body>
-<form name='input' action='../RegistrationServlet' method='put'>
-<input type='hidden' name='command' value='selectModel'>
+<form name='input' action='listSelectedModels.jsp' method='put'>
 <table border='0'>
 
 <tr>

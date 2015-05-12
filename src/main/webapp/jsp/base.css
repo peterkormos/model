@@ -1,0 +1,50 @@
+input , select
+{
+	border-radius: 5px; padding-left: 10px;
+	background: linear-gradient(rgb(235,235,235), white);
+}
+
+input[type="submit"]
+{
+	background: linear-gradient(rgba(0,150,0,0.3), white);
+}
+
+input:focus 
+{
+	border-color:#333; 
+	background: linear-gradient(rgba(100,100,200,0.3), white);
+}
+
+table
+{
+	box-shadow: 5px 5px 10px #888;
+    padding-top: 5px;
+    padding-right: 5px;
+    padding-bottom: 5px;
+    padding-left: 5px;
+}
+
+a
+{
+    border-style: solid;
+	border-color: transparent;
+	border-width: 3px;
+	padding-left: 5px;
+	display:block;
+	height: 30px;
+}
+
+a:link {
+    text-decoration:none;
+}
+a:visited {
+    text-decoration:none;
+}
+a:hover {
+    border-left: 3px solid #00aa00;
+    text-decoration:underline;
+	background-color: #eeeeee;
+}
+a:active {
+    text-decoration:underline;
+}

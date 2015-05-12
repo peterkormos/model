@@ -9,7 +9,7 @@
 
 	if (user.language.length() != 2)
 	{
-	  response.sendRedirect("../static/" + user.language + "_main.html");
+	  response.sendRedirect(user.language + "_main.jsp");
 	  return;
 	}
 
@@ -20,9 +20,12 @@
 	  show = "-";
 	}
 %>
-<html><body>
+<html>
+<head>
+</head>
+<body>
 
-<link href="css/base.css" rel="stylesheet" type="text/css"/>
+<link href="base.css" rel="stylesheet" type="text/css"/>
 <div class="header"></div>
 
 <p>
@@ -59,7 +62,12 @@ function checkSubmit()
   <a href="#" onClick="document.getElementById('command').value='inputForAddModel';this.parentNode.submit();">
   <img src="../icons/add.png" height="30" align="center"> <%=language.getString("add")%></a>
 
-
+<p></p>
+    
+  <a href="#" onClick="document.getElementById('command').value='inputForPhotoUpload';this.parentNode.submit();">
+  <img src="../icons/photo.png" height="30" align="center"> <%=language.getString("photo")%>
+  </a>
+ 
 <p></p>
    
   <a href="#" onClick="document.getElementById('command').value='inputForSelectModelForModify';this.parentNode.submit();">
@@ -72,10 +80,12 @@ function checkSubmit()
 
 <p></p>
 
+<%-- 
   <a href="#" onClick="document.getElementById('command').value='listMyModels';this.parentNode.submit();">
   <img src="../icons/list.png" height="30" align="center"> <%=language.getString("list.models")%></a>
 
 <p></p>
+ --%>
 
   <a href="#" onClick="document.getElementById('command').value='sendEmail';this.parentNode.submit();">
   <img src="../icons/email.png" height="30" align="center"> <%=language.getString("send.email")%></a>
@@ -85,15 +95,14 @@ function checkSubmit()
   <a href="#" onClick="document.getElementById('command').value='logout';this.parentNode.submit();">
   <img src="../icons/exit.png" height="30" align="center"> <%=language.getString("logout")%></a>
 
-
-<hr>
-
-    
+<p></p>
+   
   <a href="#" onClick="document.getElementById('command').name='action';document.getElementById('command').value='modifyUser';document.getElementById('input').action='user.jsp';this.parentNode.submit();">
   <img src="../icons/modify2.png" height="30" align="center"> <%=language.getString("modify.user")%></a>
 
 <p></p>
 
+<hr>
 	<a href="#" onClick="checkSubmit();" style="{color: rgb(255,0,0);font-weight:bold}">
   <img src="../icons/delete.png" height="30" align="center"> <%=language.getString("delete.user")%></a>
 
@@ -103,6 +112,7 @@ function checkSubmit()
 if(servlet.isOnSiteUse())
 {
 %>
+	<hr>
 	<a href='../helyi.html'> helyi.html</a>
 	<p>
 	<hr>
@@ -114,11 +124,16 @@ if(servlet.isOnSiteUse())
 	
 	<jsp:include page="modelSelect.jsp">
 	  <jsp:param name="action" value="printMyModels"/>
-	  <jsp:param name="submitLabel" value="print.models"/>
+	  <jsp:param name="submitLabel" value='<%=language.getString("print.models")%>'/>
 	</jsp:include>
 
 <%
 }
 %>
+
+<%=language.getString("list.models")%>
+<p>
+
+<jsp:include page="listMyModels.jsp"/>
 
 </body></html>
