@@ -1,151 +1,41 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<parent>
 		<groupId>org.peterkormos.openshift</groupId>
 		<artifactId>application-container</artifactId>
-		<version>1.0</version>
-	</parent>
-
-	<artifactId>form-modelregistration</artifactId>
-	<packaging>war</packaging>
-
-	<dependencies>
-		<!-- http://mvnrepository.com/artifact/org.apache.derby/derby -->
-		<dependency>
-			<groupId>org.apache.derby</groupId>
-			<artifactId>derby</artifactId>
-			<version>10.12.1.1</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.hibernate</groupId>
-			<artifactId>hibernate-c3p0</artifactId>
-			<version>4.1.4.Final</version>
-		</dependency>
-		<dependency>
-			<groupId>org.hibernate</groupId>
-			<artifactId>hibernate-core</artifactId>
-			<version>4.1.4.Final</version>
-		</dependency>
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>4.8</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>servlet-api</artifactId>
-			<version>2.5</version>
-			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>log4j</groupId>
-			<artifactId>log4j</artifactId>
-			<version>1.2.16</version>
-		</dependency>
-		<dependency>
-			<groupId>javax.mail</groupId>
-			<artifactId>mail</artifactId>
-			<version>1.4</version>
-		</dependency>
-		<dependency>
-			<groupId>commons-io</groupId>
-			<artifactId>commons-io</artifactId>
-			<version>2.4</version>
-		</dependency>
-
-		<dependency>
-			<groupId>commons-fileupload</groupId>
-			<artifactId>commons-fileupload</artifactId>
-			<version>1.2.1</version>
-		</dependency>
-	</dependencies>
-	<build>
-	<pluginManagement>
-		<plugins>
-			<plugin>
-                		<groupId>org.apache.maven.plugins</groupId>
-                		<artifactId>maven-war-plugin</artifactId>
-				<version>2.1.1</version>
-			</plugin>
-		</plugins>
-	</pluginManagement>
-	    
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-war-plugin</artifactId>
-				<configuration>
-					<webResources>
-						<resource>
-                            <directory>${project.build.sourceDirectory}</directory>
-							<targetPath>sources</targetPath>
-						</resource>
-						<resource>
-							<directory>${basedir}/src/main/webapp/WEB-INF</directory>
-							<targetPath>WEB-INF</targetPath>
-							<filtering>true</filtering>
-						</resource>
-					</webResources>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
-
-	<profiles>
-		<profile>
-			<!-- When built in OpenShift the 'openshift' profile will be used when 
-				invoking mvn. -->
-			<!-- Use this profile for any OpenShift specific customization your app 
-				will need. -->
-			<!-- By default that is to put the resulting archive into the 'webapps' 
-				folder. -->
-			<!-- http://maven.apache.org/guides/mini/guide-building-for-different-environments.html -->
-			<id>openshift</id>
-
-			<dependencies>
-				<dependency>
-					<groupId>mysql</groupId>
-					<artifactId>mysql-connector-java</artifactId>
-					<version>5.1.24</version>
-				</dependency>
-			</dependencies>
-			<build>
-				<finalName>modelregistration</finalName>
-				<plugins>
-					<plugin>
-	                <groupId>org.apache.maven.plugins</groupId>
-						<artifactId>maven-war-plugin</artifactId>
-						<configuration>
-							<outputDirectory>webapps</outputDirectory>
-							<warName>ROOT</warName>
-							<resource>
-								<directory>${basedir}/src/main/webapp/WEB-INF</directory>
-								<targetPath>WEB-INF</targetPath>
-								<filtering>true</filtering>
-							</resource>
-						</configuration>
-					</plugin>
-				</plugins>
-			</build>
-			<properties>
-				<db.url>jdbc:mysql://${OPENSHIFT_MYSQL_DB_HOST}:${OPENSHIFT_MYSQL_DB_PORT}/${OPENSHIFT_APP_NAME}</db.url>
-				<db.user>adminFdLe6nH</db.user>
-				<db.password>FlGKBzJ7u_bJ</db.password>
-				<db.driver.class>com.mysql.jdbc.Driver</db.driver.class>
-				<hibernate.dialect>org.hibernate.dialect.MySQLDialect</hibernate.dialect>
-			</properties>
-		</profile>
-	</profiles>
-
+	<packaging>pom</packaging>
+	<version>1.0</version>
+	<repositories>
+		<repository>
+			<id>eap</id>
+			<url>http://maven.repository.redhat.com/techpreview/all</url>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
+	<pluginRepositories>
+		<pluginRepository>
+			<id>eap</id>
+			<url>http://maven.repository.redhat.com/techpreview/all</url>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</pluginRepository>
+	</pluginRepositories>
 	<properties>
-		<db.driver.class>org.apache.derby.jdbc.EmbeddedDriver</db.driver.class>
-		<hibernate.dialect>org.hibernate.dialect.DerbyDialect</hibernate.dialect>
-		<db.url>jdbc:derby:makettDB;create=true</db.url>
-		<db.user></db.user>
-		<db.password></db.password>
-		<jetty.version>9.2.2.v20140723</jetty.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.source>1.6</maven.compiler.source>
+		<maven.compiler.target>1.6</maven.compiler.target>
 	</properties>
+	<modules>
+		<module>form-modelregistration</module>
+		<module>standalone-starter</module>
+	</modules>
 </project>
