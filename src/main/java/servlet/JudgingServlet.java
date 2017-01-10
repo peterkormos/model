@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -29,7 +28,7 @@ import datatype.Record;
 
 public final class JudgingServlet extends HttpServlet
 {
-  private static final String JUDGING_FILENAME = "judging";
+  private static final String JUDGING_FILENAME = ".judging";
 
   public enum RequestType
   {
@@ -60,7 +59,7 @@ public final class JudgingServlet extends HttpServlet
 	{
 	  dao = new HibernateDAO(config.getServletContext().getResource("/WEB-INF/conf/hibernate.cfg.xml"));
 	}
-	catch (MalformedURLException e)
+	catch (final MalformedURLException e)
 	{
 	  throw new ServletException(e);
 	}
@@ -114,7 +113,7 @@ public final class JudgingServlet extends HttpServlet
 		redirectRequest(request, response, "/jsp/judging.jsp");
 	  }
 	}
-	catch (Exception ex)
+	catch (final Exception ex)
 	{
 	  ex.printStackTrace(response.getWriter());
 	}
@@ -123,28 +122,33 @@ public final class JudgingServlet extends HttpServlet
   private void listJudgingSummary(HttpServletRequest request, HttpServletResponse response) throws Exception
   {
 
-	Map<String, JudgingResult> scoresByCategory = new HashMap<String, JudgingResult>();
+	final Map<String, JudgingResult> scoresByCategory = new LinkedHashMap<String, JudgingResult>();
 
-	List<Record> allScores = new LinkedList<Record>(dao.getAll(JudgingScore.class));
+	final List<Record> allScores = new LinkedList<Record>(dao.getAll(JudgingScore.class));
 
 	Collections.sort(allScores, new Comparator<Record>()
-		{
+	{
 	  @Override
 	  public int compare(Record o1, Record o2)
 	  {
-		JudgingScore result1 = (JudgingScore) o1;
-		JudgingScore result2 = (JudgingScore) o2;
+		final JudgingScore result1 = (JudgingScore) o1;
+		final JudgingScore result2 = (JudgingScore) o2;
 
-		return result1.getCategory().compareTo(result2.getCategory());
+		int compareToResult = result1.getCategory().compareTo(result2.getCategory());
+		if (compareToResult == 0)
+		{
+		  compareToResult = result1.getJudge().compareTo(result2.getJudge());
+		}
+		return compareToResult;
 	  }
-		});
+	});
 
-	for (Record record : allScores)
+	for (final Record record : allScores)
 	{
-	  JudgingScore score = (JudgingScore) record;
+	  final JudgingScore score = (JudgingScore) record;
 
 	  JudgingResult judgingResult = scoresByCategory.get(score.getJudge() + score.getModelID());
-	  int maxScore = getMaxScore(score.getCategory(), score.getCriteriaID());
+	  final int maxScore = getMaxScore(score.getCategory(), score.getCriteriaID());
 	  if (judgingResult == null)
 	  {
 		judgingResult = new JudgingResult(score, maxScore);
@@ -173,7 +177,7 @@ public final class JudgingServlet extends HttpServlet
 
   private int getMaxScore(String category, int criteriaID) throws IOException
   {
-	for (JudgingCriteria criteria : getCriteriaList(category))
+	for (final JudgingCriteria criteria : getCriteriaList(category))
 	{
 	  if (criteria.getId() == criteriaID)
 	  {
@@ -186,13 +190,13 @@ public final class JudgingServlet extends HttpServlet
 
   private void setSessionAttribute(HttpServletRequest request, String name, Object value)
   {
-	HttpSession session = request.getSession(true);
+	final HttpSession session = request.getSession(true);
 	session.setAttribute(name, value);
   }
 
   private void deleteJudgings(HttpServletRequest request, HttpServletResponse response) throws Exception
   {
-	for (Record score : dao.getAll(JudgingScore.class))
+	for (final Record score : dao.getAll(JudgingScore.class))
 	{
 	  dao.delete(score.id, JudgingScore.class);
 	}
@@ -202,15 +206,15 @@ public final class JudgingServlet extends HttpServlet
 
   private void listJudgings(HttpServletRequest request, HttpServletResponse response) throws Exception
   {
-	List<Record> allScores = new LinkedList<Record>(dao.getAll(JudgingScore.class));
+	final List<Record> allScores = new LinkedList<Record>(dao.getAll(JudgingScore.class));
 
 	Collections.sort(allScores, new Comparator<Record>()
-		{
+	{
 	  @Override
 	  public int compare(Record o1, Record o2)
 	  {
-		JudgingScore result1 = (JudgingScore) o1;
-		JudgingScore result2 = (JudgingScore) o2;
+		final JudgingScore result1 = (JudgingScore) o1;
+		final JudgingScore result2 = (JudgingScore) o2;
 
 		int compareTo = result1.getCategory().compareTo(result2.getCategory());
 		if (compareTo == 0)
@@ -224,7 +228,7 @@ public final class JudgingServlet extends HttpServlet
 
 		return compareTo;
 	  }
-		});
+	});
 
 	setSessionAttribute(request, SessionAttribute.Judgings.name(), allScores);
 
@@ -233,23 +237,24 @@ public final class JudgingServlet extends HttpServlet
 
   private void saveJudging(HttpServletRequest request, HttpServletResponse response) throws Exception
   {
-	String category = ServletUtil.getRequestAttribute(request, RequestParameter.Category.name());
-	String judge = ServletUtil.getRequestAttribute(request, RequestParameter.Judge.name());
-	int modelID = Integer.parseInt(ServletUtil.getRequestAttribute(request, RequestParameter.ModelID.name()));
-	int modellerID = Integer.parseInt(ServletUtil.getRequestAttribute(request, RequestParameter.ModellerID.name()));
+	final String category = ServletUtil.getRequestAttribute(request, RequestParameter.Category.name());
+	final String judge = ServletUtil.getRequestAttribute(request, RequestParameter.Judge.name());
+	final int modelID = Integer.parseInt(ServletUtil.getRequestAttribute(request, RequestParameter.ModelID.name()));
+	final int modellerID = Integer.parseInt(ServletUtil.getRequestAttribute(request, RequestParameter.ModellerID.name()));
 
-	int judgingCriterias = Integer.parseInt(ServletUtil.getRequestAttribute(request, RequestParameter.JudgingCriterias.name()));
-	String comment = ServletUtil.getOptionalRequestAttribute(request, RequestParameter.Comment.name());
+	final int judgingCriterias = Integer
+	    .parseInt(ServletUtil.getRequestAttribute(request, RequestParameter.JudgingCriterias.name()));
+	final String comment = ServletUtil.getOptionalRequestAttribute(request, RequestParameter.Comment.name());
 
 	for (int i = 1; i <= judgingCriterias; i++)
 	{
-	  String optionalRequestAttribute = ServletUtil.getOptionalRequestAttribute(request, RequestParameter.Score.name() + i);
+	  final String optionalRequestAttribute = ServletUtil.getOptionalRequestAttribute(request, RequestParameter.Score.name() + i);
 	  if ("-".equals(optionalRequestAttribute))
 	  {
 		continue;
 	  }
 
-	  int score = Integer.parseInt(optionalRequestAttribute);
+	  final int score = Integer.parseInt(optionalRequestAttribute);
 
 	  dao.save(new JudgingScore(dao.getNextID(JudgingScore.class), category, judge, modelID, modellerID, i, score, comment));
 	}
@@ -260,7 +265,7 @@ public final class JudgingServlet extends HttpServlet
   private void showJudgingForm(HttpServletRequest request, HttpServletResponse response) throws Exception
   {
 
-	String category = ServletUtil.getRequestAttribute(request, RequestParameter.Category.name());
+	final String category = ServletUtil.getRequestAttribute(request, RequestParameter.Category.name());
 
 	setSessionAttribute(request, SessionAttribute.JudgingRulesForCategory.name(), getCriteriaList(category));
 	setSessionAttribute(request, SessionAttribute.Category.name(), category);
@@ -270,19 +275,19 @@ public final class JudgingServlet extends HttpServlet
 
   private List<JudgingCriteria> getCriteriaList(String category) throws IOException
   {
-	Map<String, String> judgingRules = loadFile(JUDGING_FILENAME);
+	final Map<String, String> judgingRules = loadFile(JUDGING_FILENAME);
 
-	Map<String, String> judgingRulesForCategory = loadFile(judgingRules.get(category));
-	List<JudgingCriteria> criteriaList = new LinkedList<JudgingCriteria>();
+	final Map<String, String> judgingRulesForCategory = loadFile(judgingRules.get(category));
+	final List<JudgingCriteria> criteriaList = new LinkedList<JudgingCriteria>();
 
-	for (Entry<String, String> entry : judgingRulesForCategory.entrySet())
+	for (final Entry<String, String> entry : judgingRulesForCategory.entrySet())
 	{
-	  String values = entry.getValue();
-	  String[] splitValues = values.split(";");
-	  String description = splitValues[0];
-	  int maxScore = Integer.parseInt(splitValues[1]);
+	  final String values = entry.getValue();
+	  final String[] splitValues = values.split(";");
+	  final String description = splitValues[0];
+	  final int maxScore = Integer.parseInt(splitValues[1]);
 
-	  JudgingCriteria criteria = new JudgingCriteria(Integer.parseInt(entry.getKey()), description, maxScore);
+	  final JudgingCriteria criteria = new JudgingCriteria(Integer.parseInt(entry.getKey()), description, maxScore);
 	  criteriaList.add(criteria);
 	}
 
@@ -291,7 +296,7 @@ public final class JudgingServlet extends HttpServlet
 
   private void showJudgingRules(HttpServletRequest request, HttpServletResponse response) throws IOException
   {
-	Map<String, String> judging = loadFile(JUDGING_FILENAME);
+	final Map<String, String> judging = loadFile(JUDGING_FILENAME);
 
 	setSessionAttribute(request, RequestType.GetJudgingRules.name(), judging);
 	redirectRequest(request, response, "/jsp/showJudgingRules.jsp");
@@ -313,7 +318,7 @@ public final class JudgingServlet extends HttpServlet
   private File getFile(String fileName)
   {
 	String basePath = "." + File.separator;
-	final String extension = ".txt";
+	final String extension = "";
 
 	File file = null;
 	do
@@ -333,13 +338,13 @@ public final class JudgingServlet extends HttpServlet
 
   private Map<String, String> loadFile(File file) throws IOException
   {
-	Map<String, String> props = new LinkedHashMap<String, String>();
-	BufferedReader reader = new BufferedReader(new FileReader(file));
+	final Map<String, String> props = new LinkedHashMap<String, String>();
+	final BufferedReader reader = new BufferedReader(new FileReader(file));
 
 	String line = null;
 	while ((line = reader.readLine()) != null)
 	{
-	  String[] kv = line.split("=");
+	  final String[] kv = line.split("=");
 	  props.put(kv[0], kv[1]);
 	}
 

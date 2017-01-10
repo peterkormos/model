@@ -15,10 +15,11 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.ResourceBundle;
 import java.util.StringTokenizer;
 
 import javax.servlet.http.HttpServletRequest;
+
+import org.apache.log4j.Logger;
 
 import datatype.AgeGroup;
 import datatype.AwardedModel;
@@ -31,6 +32,8 @@ import datatype.User;
 
 public class ServletDAO
 {
+  public static Logger logger = Logger.getLogger(ServletDAO.class);
+
   private final RegistrationServlet registrationServlet;
   private final Map<Integer, String> charEncodeMap;
 
@@ -48,8 +51,9 @@ public class ServletDAO
 
   private Connection getDBConnection() throws SQLException
   {
-	if (this.dBConnection == null || this.dBConnection.isClosed())
+	if (this.dBConnection == null || this.dBConnection.isClosed() || !this.dBConnection.isValid(0))
 	{
+	  logger.debug("ServletDAO.getDBConnection(): Acquiring new DB connnection");
 	  this.dBConnection = DriverManager.getConnection(dbURL, dbUserName, dbPassword);
 	  this.dBConnection.setAutoCommit(true);
 	}
@@ -58,7 +62,7 @@ public class ServletDAO
   }
 
   public ServletDAO(RegistrationServlet registrationServlet, String dbURL, String dbUserName, String dbPassword)
-	  throws SQLException
+      throws SQLException
   {
 	this.dbURL = dbURL;
 	this.dbUserName = dbUserName;
@@ -133,12 +137,12 @@ public class ServletDAO
 
   }
 
-  private void encodeStringForDB(final PreparedStatement queryStatement, final int column, final String value) throws Exception
+  private void encodeStringForDB(final PreparedStatement queryStatement, final int column, final String value) throws SQLException
   {
 	queryStatement.setString(column, encodeString(value));
   }
 
-  String encodeString(String value) throws Exception
+  String encodeString(String value)
   {
 	if (value == null)
 	{
@@ -175,7 +179,7 @@ public class ServletDAO
 	return buff.toString();
   }
 
-  public static String decodeStringFromDB(final ResultSet rs, final String column) throws Exception
+  public static String decodeStringFromDB(final ResultSet rs, final String column) throws SQLException
   {
 	final String value = rs.getString(column);
 
@@ -190,12 +194,12 @@ public class ServletDAO
 
   }
 
-  public void registerNewUser(final User user, final ResourceBundle language) throws Exception
+  public void registerNewUser(final User user) throws Exception
   {
-	registerNewUser(user, language, false);
+	registerNewUser(user, false);
   }
 
-  public void registerNewUser(final User user, final ResourceBundle language, final boolean deleteUserFromDB) throws Exception
+  public void registerNewUser(final User user, final boolean deleteUserFromDB) throws SQLException
   {
 	PreparedStatement queryStatement = null;
 
@@ -207,11 +211,9 @@ public class ServletDAO
 		deleteEntry("MAK_USERS", "user_id", user.userID);
 	  }
 
-	  queryStatement = getDBConnection()
-		  .prepareStatement(
-		      "insert into MAK_USERS "
-		          + "(USER_ID, USER_PASSWORD, FIRST_NAME, LAST_NAME, USER_LANGUAGE, COUNTRY, ADDRESS, TELEPHONE, EMAIL, YEAR_OF_BIRTH, CITY, USER_ENABLED) values "
-		          + "(?,?,?,?,?,?,?,?,?,?,?,1)");
+	  queryStatement = getDBConnection().prepareStatement("insert into MAK_USERS "
+	      + "(USER_ID, USER_PASSWORD, FIRST_NAME, LAST_NAME, USER_LANGUAGE, COUNTRY, ADDRESS, TELEPHONE, EMAIL, YEAR_OF_BIRTH, CITY, USER_ENABLED) values "
+	      + "(?,?,?,?,?,?,?,?,?,?,?,1)");
 
 	  queryStatement.setInt(1, user.userID);
 	  encodeStringForDB(queryStatement, 2, user.password);
@@ -238,7 +240,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("ServletDAO.registerNewUser(): ", ex);
+		logger.fatal("ServletDAO.registerNewUser(): ", ex);
 	  }
 	}
   }
@@ -248,8 +250,8 @@ public class ServletDAO
 	ResultSet rs = null;
 	try
 	{
-	  final PreparedStatement queryStatement = getDBConnection().prepareStatement(
-		  "select count(*) from MAK_USERS where EMAIL = ?");
+	  final PreparedStatement queryStatement = getDBConnection()
+	      .prepareStatement("select count(*) from MAK_USERS where EMAIL = ?");
 	  encodeStringForDB(queryStatement, 1, email);
 	  rs = queryStatement.executeQuery();
 	  rs.next();
@@ -266,7 +268,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("ServletDAO.userExists(): ", ex);
+		logger.fatal("ServletDAO.userExists(): ", ex);
 	  }
 
 	}
@@ -280,12 +282,11 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = getDBConnection().prepareStatement(
-		  "insert into MAK_CATEGORY"
-		      + " (CATEGORY_ID, CATEGORY_CODE, CATEGORY_DESCRIPTION, CATEGORY_GROUP_ID, MASTER, MODEL_CLASS,ageGroup) values "
-		      + "(?,?,?,?,?,?,?)");
+	  queryStatement = getDBConnection().prepareStatement("insert into MAK_CATEGORY"
+	      + " (CATEGORY_ID, CATEGORY_CODE, CATEGORY_DESCRIPTION, CATEGORY_GROUP_ID, MASTER, MODEL_CLASS,ageGroup) values "
+	      + "(?,?,?,?,?,?,?)");
 
-	  registrationServlet.logger.debug("ServletDAO.saveCategory(): categoryID: " + category.categoryID);
+	  logger.debug("ServletDAO.saveCategory(): categoryID: " + category.categoryID);
 
 	  queryStatement.setInt(1, category.categoryID);
 	  encodeStringForDB(queryStatement, 2, category.categoryCode);
@@ -313,7 +314,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.saveCategory(): ", ex);
+		logger.fatal("!!! ServletDAO.saveCategory(): ", ex);
 	  }
 	}
   }
@@ -357,7 +358,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getAwardedModels(): ", ex);
+		logger.fatal("!!! ServletDAO.getAwardedModels(): ", ex);
 	  }
 	}
   }
@@ -369,9 +370,8 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = getDBConnection().prepareStatement(
-		  "SELECT * FROM MAK_CATEGORY" + (CATEGORY_group_ID == 0 ? "" : " WHERE CATEGORY_group_ID = " + CATEGORY_group_ID)
-		      + " order by CATEGORY_CODE");
+	  queryStatement = getDBConnection().prepareStatement("SELECT * FROM MAK_CATEGORY"
+	      + (CATEGORY_group_ID == 0 ? "" : " WHERE CATEGORY_group_ID = " + CATEGORY_group_ID) + " order by CATEGORY_ID");
 
 	  rs = queryStatement.executeQuery();
 
@@ -381,7 +381,8 @@ public class ServletDAO
 	  {
 		final Category category = new Category(rs.getInt("CATEGORY_ID"), decodeStringFromDB(rs, "CATEGORY_CODE"),
 		    decodeStringFromDB(rs, "CATEGORY_DESCRIPTION"), getCategoryGroup(rs.getInt("CATEGORY_GROUP_ID"), groups),
-		    rs.getInt("MASTER") == 1, ModelClass.valueOf(rs.getString("MODEL_CLASS")), AgeGroup.valueOf(rs.getString("ageGroup")));
+		    rs.getInt("MASTER") == 1, ModelClass.valueOf(rs.getString("MODEL_CLASS")),
+		    AgeGroup.valueOf(rs.getString("ageGroup")));
 
 		if (show == null || category.group.show.equals(show))
 		{
@@ -408,13 +409,13 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getCategoryList(): ", ex);
+		logger.fatal("!!! ServletDAO.getCategoryList(): ", ex);
 	  }
 	}
   }
 
-  public CategoryGroup getCategoryGroup(final int categoryGroupID, final List<CategoryGroup> groups) throws SQLException,
-	  Exception
+  public CategoryGroup getCategoryGroup(final int categoryGroupID, final List<CategoryGroup> groups)
+      throws SQLException, Exception
   {
 	for (final CategoryGroup group : groups)
 	{
@@ -443,8 +444,8 @@ public class ServletDAO
 
 	  while (rs.next())
 	  {
-		returned.add(new CategoryGroup(rs.getInt("CATEGORY_group_ID"), decodeStringFromDB(rs, "MODEL_SHOW"), decodeStringFromDB(
-		    rs, "CATEGORY_GROUP")));
+		returned.add(new CategoryGroup(rs.getInt("CATEGORY_group_ID"), decodeStringFromDB(rs, "MODEL_SHOW"),
+		    decodeStringFromDB(rs, "CATEGORY_GROUP")));
 	  }
 
 	  return returned;
@@ -464,7 +465,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getCategoryGroups(): ", ex);
+		logger.fatal("!!! ServletDAO.getCategoryGroups(): ", ex);
 	  }
 	}
   }
@@ -504,20 +505,20 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! getShows(): ", ex);
+		logger.fatal("!!! getShows(): ", ex);
 	  }
 	}
   }
 
-  public List<User> getUsers() throws Exception
+  public List<User> getUsers() throws SQLException
   {
 	PreparedStatement queryStatement = null;
 	ResultSet rs = null;
 
 	try
 	{
-	  queryStatement = getDBConnection().prepareStatement(
-		  "SELECT * FROM MAK_USERS where USER_enabled=1 order by LAST_NAME, FIRST_NAME");
+	  queryStatement = getDBConnection()
+	      .prepareStatement("SELECT * FROM MAK_USERS where USER_enabled=1 order by LAST_NAME, FIRST_NAME");
 
 	  rs = queryStatement.executeQuery();
 
@@ -544,7 +545,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getUserList(): ", ex);
+		logger.fatal("!!! ServletDAO.getUserList(): ", ex);
 	  }
 	}
   }
@@ -554,7 +555,7 @@ public class ServletDAO
 	PreparedStatement queryStatement = null;
 	final ResultSet rs = null;
 
-	registrationServlet.logger.trace("ServletDAO.saveAwardedModel(): " + model);
+	logger.trace("ServletDAO.saveAwardedModel(): " + model);
 
 	try
 	{
@@ -582,7 +583,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.saveAwardedModel(): ", ex);
+		logger.fatal("!!! ServletDAO.saveAwardedModel(): ", ex);
 	  }
 	}
   }
@@ -592,21 +593,19 @@ public class ServletDAO
 	PreparedStatement queryStatement = null;
 	final ResultSet rs = null;
 
-	registrationServlet.logger.trace("ServletDAO.saveModel(): " + model);
+	logger.trace("ServletDAO.saveModel(): " + model);
 
 	try
 	{
-	  queryStatement = getDBConnection()
-		  .prepareStatement(
-		      "insert into MAK_MODEL"
-		          + " (MODEL_ID, USER_ID, CATEGORY_ID, MODEL_SCALE, MODEL_NAME, PRODUCER, COMMENTS, "
-		          + "IDENTIFICATION, MARKINGS, GLUEDTOBASE, "
-		          + "SCRATCH_EXTERNALSURFACE, SCRATCH_COCKPIT, SCRATCH_ENGINE, SCRATCH_UNDERCARRIAGE, SCRATCH_GEARBAY, SCRATCH_ARMAMENT, SCRATCH_CONVERSION, "
-		          + "PHOTOETCHED_EXTERNALSURFACE, PHOTOETCHED_COCKPIT, PHOTOETCHED_ENGINE, PHOTOETCHED_UNDERCARRIAGE, PHOTOETCHED_GEARBAY, PHOTOETCHED_ARMAMENT, PHOTOETCHED_CONVERSION, "
-		          + "RESIN_EXTERNALSURFACE, RESIN_COCKPIT, RESIN_ENGINE, RESIN_UNDERCARRIAGE, RESIN_GEARBAY, RESIN_ARMAMENT, RESIN_CONVERSION, "
-		          + "DOCUMENTATION_EXTERNALSURFACE, DOCUMENTATION_COCKPIT, DOCUMENTATION_ENGINE, DOCUMENTATION_UNDERCARRIAGE, DOCUMENTATION_GEARBAY, DOCUMENTATION_ARMAMENT, DOCUMENTATION_CONVERSION)"
-		          + " values " + "(?,?,?,?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?"
-		          + ",?,?,?,?,?,?,?" + ")");
+	  queryStatement = getDBConnection().prepareStatement(
+	      "insert into MAK_MODEL" + " (MODEL_ID, USER_ID, CATEGORY_ID, MODEL_SCALE, MODEL_NAME, PRODUCER, COMMENTS, "
+	          + "IDENTIFICATION, MARKINGS, GLUEDTOBASE, "
+	          + "SCRATCH_EXTERNALSURFACE, SCRATCH_COCKPIT, SCRATCH_ENGINE, SCRATCH_UNDERCARRIAGE, SCRATCH_GEARBAY, SCRATCH_ARMAMENT, SCRATCH_CONVERSION, "
+	          + "PHOTOETCHED_EXTERNALSURFACE, PHOTOETCHED_COCKPIT, PHOTOETCHED_ENGINE, PHOTOETCHED_UNDERCARRIAGE, PHOTOETCHED_GEARBAY, PHOTOETCHED_ARMAMENT, PHOTOETCHED_CONVERSION, "
+	          + "RESIN_EXTERNALSURFACE, RESIN_COCKPIT, RESIN_ENGINE, RESIN_UNDERCARRIAGE, RESIN_GEARBAY, RESIN_ARMAMENT, RESIN_CONVERSION, "
+	          + "DOCUMENTATION_EXTERNALSURFACE, DOCUMENTATION_COCKPIT, DOCUMENTATION_ENGINE, DOCUMENTATION_UNDERCARRIAGE, DOCUMENTATION_GEARBAY, DOCUMENTATION_ARMAMENT, DOCUMENTATION_CONVERSION)"
+	          + " values " + "(?,?,?,?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?" + ",?,?,?,?,?,?,?"
+	          + ")");
 
 	  queryStatement.setInt(1, model.modelID);
 
@@ -648,7 +647,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.saveModel(): ", ex);
+		logger.fatal("!!! ServletDAO.saveModel(): ", ex);
 	  }
 	}
   }
@@ -666,7 +665,7 @@ public class ServletDAO
 	  rs.next();
 
 	  final int maxID = rs.getInt(1);
-	  registrationServlet.logger.trace("ServletDAO.getNextID() table: " + table + ", maxID in MAK_" + table + " : " + maxID);
+	  logger.trace("ServletDAO.getNextID() table: " + table + ", maxID in MAK_" + table + " : " + maxID);
 
 	  if (maxID != 0)
 	  {
@@ -692,7 +691,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getNextID(): table: " + table, ex);
+		logger.fatal("!!! ServletDAO.getNextID(): table: " + table, ex);
 	  }
 	}
   }
@@ -729,12 +728,12 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.saveModelClass(): userId: " + userID + " modelClass: " + modelClass, ex);
+		logger.fatal("!!! ServletDAO.saveModelClass(): userId: " + userID + " modelClass: " + modelClass, ex);
 	  }
 	}
   }
 
-  public User getUser(final ResultSet rs) throws Exception
+  public User getUser(final ResultSet rs) throws SQLException
   {
 	final List<ModelClass> modelClasses = new LinkedList<ModelClass>();
 	if (rs.getString("MODEL_CLASS") != null)
@@ -747,10 +746,18 @@ public class ServletDAO
 	  }
 	}
 
-	return new User(rs.getInt("USER_ID"), decodeStringFromDB(rs, "USER_PASSWORD"), decodeStringFromDB(rs, "FIRST_NAME"),
-	    decodeStringFromDB(rs, "LAST_NAME"), decodeStringFromDB(rs, "USER_LANGUAGE"), decodeStringFromDB(rs, "ADDRESS"),
-	    decodeStringFromDB(rs, "TELEPHONE"), decodeStringFromDB(rs, "EMAIL"), rs.getBoolean("USER_ENABLED"), decodeStringFromDB(
-	        rs, "COUNTRY"), rs.getInt("YEAR_OF_BIRTH"), decodeStringFromDB(rs, "CITY"), modelClasses);
+	final User user = new User(rs.getInt("USER_ID"), decodeStringFromDB(rs, "USER_PASSWORD"),
+	    decodeStringFromDB(rs, "FIRST_NAME"), decodeStringFromDB(rs, "LAST_NAME"), decodeStringFromDB(rs, "USER_LANGUAGE"),
+	    decodeStringFromDB(rs, "ADDRESS"), decodeStringFromDB(rs, "TELEPHONE"), decodeStringFromDB(rs, "EMAIL"),
+	    rs.getBoolean("USER_ENABLED"), decodeStringFromDB(rs, "COUNTRY"), rs.getInt("YEAR_OF_BIRTH"),
+	    decodeStringFromDB(rs, "CITY"));
+
+	if (!modelClasses.isEmpty())
+	{
+	  user.setModelClass(modelClasses);
+	}
+
+	return user;
   }
 
   public User getUser(String email) throws Exception
@@ -791,7 +798,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getUser(): ", ex);
+		logger.fatal("!!! ServletDAO.getUser(): ", ex);
 	  }
 	}
   }
@@ -831,7 +838,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getUser(): ", ex);
+		logger.fatal("!!! ServletDAO.getUser(): ", ex);
 	  }
 	}
   }
@@ -884,7 +891,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.registrationAllowed(): ", ex);
+		logger.fatal("!!! ServletDAO.registrationAllowed(): ", ex);
 	  }
 	}
   }
@@ -922,14 +929,14 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.setSystemParameter(): parameterName: " + parameterName
-		    + " parameterValue: " + parameterValue, ex);
+		logger.fatal(
+		    "!!! ServletDAO.setSystemParameter(): parameterName: " + parameterName + " parameterValue: " + parameterValue, ex);
 	  }
 	}
   }
 
   String createWhereStatement(final HttpServletRequest request, String where, final String sQLfield, final String httpParameter,
-	  final boolean stringParameter)
+      final boolean stringParameter)
   {
 
 	try
@@ -989,10 +996,10 @@ public class ServletDAO
 
 	try
 	{
-	  registrationServlet.logger.trace("ServletDAO.getModels(): where: " + where);
+	  logger.trace("ServletDAO.getModels(): where: " + where);
 
-	  queryStatement = getDBConnection().prepareStatement(
-		  "SELECT * FROM MAK_MODEL" + (where.length() == 0 ? "" : " where " + where) + " order by MODEL_ID");
+	  queryStatement = getDBConnection()
+	      .prepareStatement("SELECT * FROM MAK_MODEL" + (where.length() == 0 ? "" : " where " + where) + " order by MODEL_ID");
 
 	  rs = queryStatement.executeQuery();
 
@@ -1000,9 +1007,9 @@ public class ServletDAO
 
 	  while (rs.next())
 	  {
-		returned.add(new Model(rs.getInt("model_ID"), rs.getInt("user_ID"), rs.getInt("category_ID"), decodeStringFromDB(rs,
-		    "MODEL_scale"), decodeStringFromDB(rs, "MODEL_name"), decodeStringFromDB(rs, "producer"), decodeStringFromDB(rs,
-		    "comments"), decodeStringFromDB(rs, "identification"), decodeStringFromDB(rs, "markings"),
+		returned.add(new Model(rs.getInt("model_ID"), rs.getInt("user_ID"), rs.getInt("category_ID"),
+		    decodeStringFromDB(rs, "MODEL_scale"), decodeStringFromDB(rs, "MODEL_name"), decodeStringFromDB(rs, "producer"),
+		    decodeStringFromDB(rs, "comments"), decodeStringFromDB(rs, "identification"), decodeStringFromDB(rs, "markings"),
 		    rs.getInt("gluedToBase") == 1, getDetailing(rs)));
 	  }
 	  return returned;
@@ -1022,7 +1029,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getModels(): ", ex);
+		logger.fatal("!!! ServletDAO.getModels(): ", ex);
 	  }
 	}
   }
@@ -1034,16 +1041,16 @@ public class ServletDAO
 
 	try
 	{
-	  registrationServlet.logger.trace("ServletDAO.getModel(): modelID: " + modelID);
+	  logger.trace("ServletDAO.getModel(): modelID: " + modelID);
 
 	  queryStatement = getDBConnection().prepareStatement("SELECT * FROM MAK_MODEL where MODEL_ID=" + modelID);
 
 	  rs = queryStatement.executeQuery();
 	  if (rs.next())
 	  {
-		return new Model(rs.getInt("model_ID"), rs.getInt("user_ID"), rs.getInt("category_ID"), decodeStringFromDB(rs,
-		    "MODEL_scale"), decodeStringFromDB(rs, "MODEL_name"), decodeStringFromDB(rs, "producer"), decodeStringFromDB(rs,
-		    "comments"), decodeStringFromDB(rs, "identification"), decodeStringFromDB(rs, "markings"),
+		return new Model(rs.getInt("model_ID"), rs.getInt("user_ID"), rs.getInt("category_ID"),
+		    decodeStringFromDB(rs, "MODEL_scale"), decodeStringFromDB(rs, "MODEL_name"), decodeStringFromDB(rs, "producer"),
+		    decodeStringFromDB(rs, "comments"), decodeStringFromDB(rs, "identification"), decodeStringFromDB(rs, "markings"),
 		    rs.getInt("gluedToBase") == 1, getDetailing(rs));
 	  }
 	  else
@@ -1066,7 +1073,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getModel(): ", ex);
+		logger.fatal("!!! ServletDAO.getModel(): ", ex);
 	  }
 	}
   }
@@ -1079,7 +1086,7 @@ public class ServletDAO
 	{
 	  final String group = Detailing.DETAILING_GROUPS[i];
 
-	  List<Boolean> criterias = new LinkedList<Boolean>();
+	  final List<Boolean> criterias = new LinkedList<Boolean>();
 	  criterias.add(rs.getInt(group + "_externalSurface") == 1);
 
 	  criterias.add(rs.getInt(group + "_cockpit") == 1);
@@ -1132,8 +1139,8 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = getDBConnection().prepareStatement(
-		  "delete from " + table + (idField == null ? "" : " where " + idField + " = ?"));
+	  queryStatement = getDBConnection()
+	      .prepareStatement("delete from " + table + (idField == null ? "" : " where " + idField + " = ?"));
 
 	  if (idField != null)
 	  {
@@ -1158,7 +1165,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.deleteEntry(): ", ex);
+		logger.fatal("!!! ServletDAO.deleteEntry(): ", ex);
 	  }
 	}
   }
@@ -1184,6 +1191,9 @@ public class ServletDAO
 
 	  int allModels = 0;
 
+	  returned.add(new String[] { "Makettek sz&aacute;ma kateg&oacute;ri&aacute;ban: ", "" });
+	  returned.add(new String[] { "|", "" });
+
 	  for (final Category category : categories)
 	  {
 		if (!category.group.show.equals(show))
@@ -1193,9 +1203,8 @@ public class ServletDAO
 
 		final List<Model> models = getModelsInCategory(category.categoryID);
 
-		returned.add(new String[] {
-		    "Makettek sz&aacute;ma [<b>" + category.categoryCode + " - " + category.categoryDescription
-		        + "</b>] kateg&oacute;ri&aacute;ban: ", String.valueOf(models.size()) });
+		returned.add(new String[] { "<b>" + category.categoryCode + " - " + category.categoryDescription + "</b>",
+		    String.valueOf(models.size()) });
 
 		// benevezett makettek szama
 		allModels += models.size();
@@ -1282,7 +1291,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getStatistics(): ", ex);
+		logger.fatal("!!! ServletDAO.getStatistics(): ", ex);
 	  }
 	}
 
@@ -1348,9 +1357,9 @@ public class ServletDAO
 	deleteEntry("MAK_USERS", "user_id", userID);
   }
 
-  public void modifyUser(final User newUser, final User oldUser, final ResourceBundle language) throws Exception
+  public void modifyUser(final User newUser, final User oldUser) throws SQLException
   {
-	registerNewUser(newUser, language, true);
+	registerNewUser(newUser, true);
   }
 
   public void newUserIDs() throws Exception
@@ -1382,8 +1391,7 @@ public class ServletDAO
 
   public void changeUserIDForUser(final String email, final int oldUserID, final int newUserID) throws Exception
   {
-	registrationServlet.logger.trace("ServletDAO.changeUserIDForUser(): email: " + email + " oldUserID: " + oldUserID
-	    + " newUserID: " + newUserID);
+	logger.trace("ServletDAO.changeUserIDForUser(): email: " + email + " oldUserID: " + oldUserID + " newUserID: " + newUserID);
 
 	PreparedStatement queryStatement = null;
 
@@ -1408,15 +1416,16 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.changeUserIDForUser(): email: " + email + " oldUserID: " + oldUserID
-		    + " newUserID: " + newUserID, ex);
+		logger.fatal(
+		    "!!! ServletDAO.changeUserIDForUser(): email: " + email + " oldUserID: " + oldUserID + " newUserID: " + newUserID,
+		    ex);
 	  }
 	}
   }
 
   public void changeUserIDForModel(final int oldUserID, final int newUserID) throws Exception
   {
-	registrationServlet.logger.trace("ServletDAO.changeUserIDForModel(): oldUserID: " + oldUserID + " newUserID: " + newUserID);
+	logger.trace("ServletDAO.changeUserIDForModel(): oldUserID: " + oldUserID + " newUserID: " + newUserID);
 
 	PreparedStatement queryStatement = null;
 
@@ -1440,8 +1449,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.changeUserIDForModel(): oldUserID: " + oldUserID + " newUserID: "
-		    + newUserID, ex);
+		logger.fatal("!!! ServletDAO.changeUserIDForModel(): oldUserID: " + oldUserID + " newUserID: " + newUserID, ex);
 	  }
 	}
   }
@@ -1453,10 +1461,10 @@ public class ServletDAO
 
 	try
 	{
-	  queryStatement = getDBConnection().prepareStatement(
-		  "insert into MAK_CATEGORY_GROUP (CATEGORY_GROUP_ID, MODEL_SHOW, CATEGORY_GROUP) values " + "(?,?,?)");
+	  queryStatement = getDBConnection()
+	      .prepareStatement("insert into MAK_CATEGORY_GROUP (CATEGORY_GROUP_ID, MODEL_SHOW, CATEGORY_GROUP) values " + "(?,?,?)");
 
-	  registrationServlet.logger.debug("ServletDAO.saveCategoryGroup(): categoryID: " + categoryGroup.categoryGroupID);
+	  logger.debug("ServletDAO.saveCategoryGroup(): categoryID: " + categoryGroup.categoryGroupID);
 
 	  queryStatement.setInt(1, categoryGroup.categoryGroupID);
 	  encodeStringForDB(queryStatement, 2, categoryGroup.show);
@@ -1480,7 +1488,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.saveCategoryGroup(): ", ex);
+		logger.fatal("!!! ServletDAO.saveCategoryGroup(): ", ex);
 	  }
 	}
   }
@@ -1492,7 +1500,7 @@ public class ServletDAO
 
 	try
 	{
-	  registrationServlet.logger.debug("ServletDAO.execute(): " + sql);
+	  logger.debug("ServletDAO.execute(): " + sql);
 	  queryStatement = getDBConnection().prepareStatement(sql);
 	  if (sql.toLowerCase().indexOf("select") > -1)
 	  {
@@ -1541,7 +1549,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.execute(): ", ex);
+		logger.fatal("!!! ServletDAO.execute(): ", ex);
 	  }
 	}
   }
@@ -1578,7 +1586,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.getSimilarLastNames(): ", ex);
+		logger.fatal("!!! ServletDAO.getSimilarLastNames(): ", ex);
 	  }
 	}
 	return returned;
@@ -1637,8 +1645,7 @@ public class ServletDAO
 	  try
 	  {
 		final byte[] loadedImage = loadImage(model.modelID);
-		registrationServlet.logger.debug("ServletDAO.loadImage(): model.modelID: " + model.modelID + " loadedImage.length: "
-		    + loadedImage.length);
+		logger.debug("ServletDAO.loadImage(): model.modelID: " + model.modelID + " loadedImage.length: " + loadedImage.length);
 		photos.put(model.modelID, loadedImage);
 	  }
 	  catch (final Exception e)
@@ -1682,7 +1689,7 @@ public class ServletDAO
 	  }
 	  catch (final Exception ex)
 	  {
-		registrationServlet.logger.fatal("!!! ServletDAO.simpleQuery(): ", ex);
+		logger.fatal("!!! ServletDAO.simpleQuery(): ", ex);
 	  }
 	}
   }

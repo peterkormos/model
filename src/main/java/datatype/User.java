@@ -2,6 +2,7 @@ package datatype;
 
 import java.io.Serializable;
 import java.util.Calendar;
+import java.util.LinkedList;
 import java.util.List;
 
 public class User implements Serializable
@@ -18,7 +19,7 @@ public class User implements Serializable
   public boolean enabled;
   public String language;
   public String country;
-  private List<ModelClass> modelClass;
+  private List<ModelClass> modelClass = new LinkedList<ModelClass>();
 
   public static final String LOCAL_USER = "_LOCAL_";
 
@@ -152,8 +153,13 @@ public class User implements Serializable
 
   }
 
+  public User(String language)
+  {
+	this(0, null, null, null, language, null, null, null, false, null, Calendar.getInstance().get(Calendar.YEAR), null);
+  }
+
   public User(int userID, String password, String firstname, String lastname, String language, String address, String telephone,
-	  String email, boolean enabled, String country, int yearOfBirth, String city, List<ModelClass> modelClass)
+      String email, boolean enabled, String country, int yearOfBirth, String city)
   {
 	this.userID = userID;
 	this.password = password;
@@ -167,7 +173,6 @@ public class User implements Serializable
 	this.country = country;
 	this.yearOfBirth = yearOfBirth;
 	this.city = city;
-	this.modelClass = modelClass;
   }
 
   public List<ModelClass> getModelClass()

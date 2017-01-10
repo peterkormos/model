@@ -1,0 +1,115 @@
+{\rtf1\ansi\ansicpg1252\deff0{\fonttbl{\f0\fnil\fcharset0 Calibri;}{\f1\fnil\fcharset238 Calibri;}{\f2\fnil\fcharset0 Times New Roman;}{\f3\fnil\fcharset238{\*\fname Times New Roman;}Times New Roman CE;}}
+{\colortbl ;\red0\green0\blue255;\red255\green0\blue0;}
+{\*\generator Msftedit 5.41.21.2510;}\viewkind4\uc1\pard\sa200\sl276\slmult1\qc\lang9\b\f0\fs32 Makett regisztr\lang1038\f1\'e1ci\'f3s rendszer\line\b0\fs22 Felhaszn\'e1l\'f3i \'e9s adminisztr\'e1ci\'f3s haszn\'e1lati le\'edr\'e1s\par
+\pard\sa200\sl276\slmult1\lang9\f0\par
+\lang1033\b\f2\fs28\'d6sszefoglal\'e1s\b0\fs24\par
+Ez a le\'edr\'e1s a makettek versenyen, verseny el\u337?tti nevez\'e9s\'e9re szolg\'e1l\'f3 sz\'e1m\'edt\'f3g\'e9pes program le\'edr\'e1sa. Ez a dokumentum \strike a makettez\u337?k \'e1ltal haszn\'e1lt fel\'fclet \'e9s\strike0  az adminisztr\'e1ci\'f3s oldalak bemutat\'e1s\'e1t tartalmazza.\par
+\b\fs28 Technikai felt\'e9telek\fs24\par
+\b0 A nevez\'e9si rendszer szerver - kliens szoftverekb\u337?l tev\u337?dik \'f6ssze. Kliens oldalon csak egy modern Internetes b\'f6ng\'e9sz\u337? sz\'fcks\'e9ges, mint pl. Google Chrome, Firefox, Opera vagy Internet Explorer. Szerver oldalon b\'e1rmilyen oper\'e1ci\'f3s rendszer (Windows, Linux, OSx, stb.) haszn\'e1lhat\'f3 ami t\'e1mogatja a Java futtat\'e1si k\'f6rnyezetet. Szerver oldalhoz egy \'e1tlagos modern szem\'e9lyi sz\'e1m\'edt\'f3g\'e9p el\'e9g, amire kor\'e1bban a Java k\'f6rnyezetet m\'e1r telep\'edtett\'e9k.\par
+A Java k\'f6rnyezet telep\'edt\'e9se a k\'f6vetkez\u337? oldalr\'f3l lehets\'e9ges:\par
+\lang9{\field{\*\fldinst{HYPERLINK "http://www.java.com/inc/BrowserRedirect1.jsp"}}{\fldrslt{\ul\cf1 http://www.java.com/inc/BrowserRedirect1.jsp}}}\f2\fs24\par
+\lang1033 A Java k\'f6rnyezetet ellen\u337?r\'edzhetj\'fck pl. Windows alatt a paracssorba be\'edrt "\lang9 java\lang1033 " parancs v\'e9grehajt\'e1s\'e1val. Ekkor a k\'f6vetkez\u337?nek kell megjelennie:\lang9\par
+C:\\>\lang1033  \lang9 java\par
+Usage: java [-options] class [args...]\par
+           (to execute a class)\par
+   or  java [-options] -jar jarfile [args...]\par
+           (to execute a jar file)\par
+\lang1033 ....\par
+\b\fs28 Rendszer telep\'edt\'e9s\fs24\par
+\b0 A szerver oldal telep\'edt\'e9s\'e9hez el\u337?sz\'f6r ki kell csomagolni a makettTelepito.zip file-t egy tetsz\u337?leges mapp\'e1ba. Kit\'f6m\'f6r\'edt\'e9s ut\'e1n a k\'f6vetkez\u337? mapp\'e1kat, file-okat kell l\'e1tni:\par
+\b\i ...\\indit.bat \b0\i0 - rendszert ind\'edt\'f3 file\line\b\i ...\\telepites.rtf \b0\i0 - ez a le\'edr\'e1s\line\b\i ...\\jars\\\b0\i0  - Maga a program file-jai. Legfontosabb a makett.war, amit esetleg rendszerfriss\'edt\'e9sn\'e9l le kell cser\'e9lni.\i\line\b ...\\index.html \b0\i0 - Weboldal, ami a rendszerhaszn\'e1lathoz sz\'fcks\'e9ges linkeket tartalmazza.\line\line\b\i ...\\.judging\b0\i0  - online zs\u369?riz\'e9shez \cf2 (jelenleg nem haszn\'e1lt funkci\'f3) \cf0 be\'e1ll\'edt\'e1sokat tartalmaz\'f3 file \line\b\i ...\\.judging-c \b0\i0 - online zs\u369?riz\'e9shez \cf2 (jelenleg nem haszn\'e1lt funkci\'f3) \cf0 be\'e1ll\'edt\'e1sokat tartalmaz\'f3 file\line\b\i ...\\.judging-f1\b0\i0  - online zs\u369?riz\'e9shez \cf2 (jelenleg nem haszn\'e1lt funkci\'f3) \cf0 be\'e1ll\'edt\'e1sokat tartalmaz\'f3 file\line\b\i ...\\.judging-f5\b0\i0  - online zs\u369?riz\'e9shez \cf2 (jelenleg nem haszn\'e1lt funkci\'f3) \cf0 be\'e1ll\'edt\'e1sokat tartalmaz\'f3 file\par
+Renszer ind\'edt\'e1sa ut\'e1n a k\'f6vetkez\u337? file-ok, mapp\'e1k j\'f6nnek m\'e9g l\'e9tre:\par
+\b\i ...\\makettDB \b0\i0 - a makettez\u337?ket, maketteket tartalmaz\'f3 adatb\'e1zis\line\b\i ...\\derby.log \b0\i0 - napl\'f3file. Indul\'e1s el\u337?tt lehet t\'f6r\'f6lni. \line\b\i ..\\RegistrationServlet.log \b0\i0 - napl\'f3file. Indul\'e1s el\u337?tt lehet t\'f6r\'f6lni. \par
+\pard Az \b\i indit.bat \b0\i0 ki\'edr egy-k\'e9t dolgot a konzolra, a v\'e9ge ez lesz\par
+\pard\sa200\sl276\slmult1\b\i ...\par
+2016-08-23 11:47:26.961:INFO:oejs.Server:main: Started @1676ms\line VERSION: 2015.11.10.\line OK.....\b0\i0\par
+\pard Ezut\'e1n a renszer el\'e9rhet\u337? a szerver g\'e9pr\u337?l pl. a k\'f6vetkez\u337? linken:\par
+\par
+\pard\sa200\sl276\slmult1\lang255{\field{\*\fldinst{HYPERLINK "http://localhost/makett/"}}{\fldrslt{\ul\cf1 http://localhost/makett/}}}\lang1033\f2\fs24\par
+Ha t\'f6bb g\'e9pen kereszt\'fcl megy egyszerre a nevez\'e9s, akkor a localhost sz\'f3t a linkben ki kell cser\'e9lni a szerver g\'e9p IP c\'edm\'e9re a h\'e1l\'f3zaton. Pl. \line\lang255{\field{\*\fldinst{HYPERLINK "http://192.168.0.1/makett/"}}{\fldrslt{\ul\cf1 http://\lang1033 192.168.0.1\lang255 /makett/}}}\lang1033\f2\fs24\par
+\pard Alternat\'edvak\'e9nt az index.html bet\'f6lt a b\'f6ng\'e9sz\u337?ben egy oldalt, ami 3 linket tartalmaz:\par
+\par
+\pard\fi-1420\li1420\b\i Bel\'e9p\'e9s \b0\i0  \tab\lang255{\field{\*\fldinst{HYPERLINK "http://localhost/makett/"}}{\fldrslt{\ul\cf1 http://localhost/makett/}}}\lang1033\f2\fs24  c\'edmre mutat. Ezt az oldalt kell a makettez\u337?knek haszn\'e1ni az el\u337?nevez\'e9shez.\par
+\b\i Helyi nevez\'e9s \tab\b0\i0  {\field{\*\fldinst{HYPERLINK "http://localhost/makett/helyi.html"}}{\fldrslt{\ul\cf1 http://localhost/makett/helyi.html}}}\f2\fs24  c\'edmre mutat. Ezt az oldalt kell haszn\'e1lnia azoknak a seg\'edt\u337?knek, akik a maketteket regisztr\'e1lj\'e1k a helyi nevez\'e9sn\'e9l.\par
+\b\i Online zs\'fbri \b0\i0  \tab{\field{\*\fldinst{HYPERLINK "http://localhost/makett/jsp/judging.jsp"}}{\fldrslt{\ul\cf1 http://localhost/makett/jsp/judging.jsp}}}\f2\fs24  c\'edmre mutat.  \cf2 (jelenleg nem haszn\'e1lt funkci\'f3) \cf0 Ezen az oldalon kereszt\'fcl tudna a zs\u369?ri elektronikusan zs\u369?rizni maketteket - a pap\'edr alap\'fa pontoz\'e1s alternat\'edv\'e1ja.\par
+\par
+\b\fs28 Adminisztr\'e1ci\'f3s fel\'fclet el\'e9r\'e9se\b0\fs24\par
+\par
+\pard A rendszer adminisztr\'e1ci\'f3s fel\'fclete el\'e9r\'e9se a \b Bel\'e9p\'e9s \b0 linken kereszt\'fcl t\'f6rt\'e9nik .\par
+\pard\sa200\sl276\slmult1\par
+\pard\b Felhaszn\'e1l\'f3n\'e9v: \tab\b0 admin\par
+\b jelsz\'f3: \tab\tab\tab\b0 secret\par
+\par
+F\u337?bb adminisztr\'e1ci\'f3s lehet\u337?s\'e9gek:\par
+\par
+* Egy makettez\u337? nev\'e9ben bel\'e9p\'e9s, nevez\'e9si lapjainak nyomtat\'e1sa\par
+* Nevezett makettek list\'e1z\'e1sa, statisztika lek\'e9rdez\'e9se\par
+* El\u337?nevezett makettek nevez\'e9si lapjainak nyomtat\'e1sa\par
+* Versenyhez kateg\'f3ri\'e1k felvitele\par
+* Adatkezel\'e9s: el\u337?nevezett makettek adatainak m\'e1sol\'e1sa az internetes szervert\u337?l oda-vissaz a helyi nevez\'e9si szerverhez.\par
+* El\u337?nevez\'e9s enged\'e9lyez\'e9se, letilt\'e1sa\par
+* Adatb\'e1zis karbantart\'e1s, makettek, makettez\u337?k t\'f6rl\'e9se a rendszerb\u337?l\par
+\par
+Bel\'e9p\'e9s ut\'e1n az adminisztr\'e1ci\'f3s oldal sz\'e1mos linket tartalmaz, amikhez tartoz\'f3 sz\'f6vegek \'e9rtelem szer\u369?en fedik le a fenti \'e9s m\'e1s funkci\'f3kat.\par
+\par
+\b\fs28 Egy makettez\u337? nev\'e9ben\lang1038\f3 ...\lang1033\b0\f2\fs24\par
+\pard\fi-1420\li1420\cf2\par
+\pard\cf0\lang1038\f3 Ezen a funkci\'f3n kereszt\'fcl az adminisztr\'e1tor be tud l\'e9pni egy kiv\'e1lasztott makettez\'f5 nev\'e9ben a rendszerbe, megn\'e9zheti, m\'f3dos\'edthatja a makettjeit \'fagy mintha azt maga a makettez\'f5 tenn\'e9. \line Egy k\'fcl\'f6n linken kereszt\'fcl egy makettez\'f5 makettjeinek nevez\'e9si lapjait is lehet. Ez akkor lehet fontos, ha valami el\'edr\'e1s volt egy makettn\'e9l, \'e9s a nevez\'e9si lapj\'e1t \'fajra kell nyomtatni.\par
+\par
+\b\fs28 Lek\'e9rdez\'e9sek...\fs24\par
+\par
+\b0 Ezeken a linkeken kereszt\'fcl lehet lek\'e9rdezni, a rendszerben l\'e9v\'f5 makettek, kateg\'f3ri\'e1k, felhaszn\'e1l\'f3k adatait. A legfontosabb k\'e9t link ezek k\'f6z\'fcl:\par
+\par
+\pard\fi-3550\li3550\lang1033\b\i\f2\'d6sszes benevezett makett list\'e1z\'e1sa \b0\i0  \tab\lang1038\f3 A t\'e1bl\'e1zat amit ez a link megjelen\'edt tartalmazza az \'f6sszes benevezett makett adatait a feljav\'edt\'e1sok n\'e9lk\'fcl. Ezt a t\'e1bl\'e1zatot kell \'e1tm\'e1solni a zs\'fbri eredm\'e9nyeket kezel\'f5, ki\'e9rt\'e9kel\'f5 Excel t\'e1bl\'e1zatba ha az haszn\'e1latban van egy versenyen.\lang1033\f2\par
+\b\i Statisztika k\'e9sz\'edt\'e9se \tab\b0\i0  S\lang1038\f3 tatisztikai oldal az \'e9ppen benevezett makettekr\'f5l. Makettes f\'f3rumokon \'e1ltal\'e1ban ezek a statisztik\'e1k jelennek meg. Ha lehet\'f5s\'e9g van link be\'e1gyaz\'e1s\'e1ra f\'f3rumba, honlapba, akkor ezt a statisztikai linket kell ott megadni, mint pl. {\field{\*\fldinst{HYPERLINK "http://modelregistration-peterkormos.rhcloud.com/RegistrationServlet/statistics"}}{\fldrslt{\ul\cf1 http://modelregistration-peterkormos.rhcloud.com/RegistrationServlet/statistics}}}\f3\fs24\par
+\lang1033\f2\par
+\b\fs28 Nyomtat\'e1s...\fs24\par
+\lang1038\b0\f3\par
+\pard Ezeken a linkeken kereszt\'fcl lehet az (el\'f5nevezett) makettek nevez\'e9si lapjait egyben nyomtatni. A nevez\'e9si lapok a b\'f6ng\'e9sz\'f5ben jelennek meg \'e9s a nyomtat\'e1s is a b\'f6ng\'e9sz\'f5b\'f5l t\'f6rt\'e9nik. A nyomtat\'e1s sokban f\'fcgg az aktu\'e1lisan haszn\'e1lt b\'f6ng\'e9sz\'f5 \'e9s a telep\'edtett nyomtat\'f3 (alap)be\'e1ll\'edt\'e1sait\'f3l, \'edgy lehets\'e9ges, hogy ezeket a be\'e1ll\'edt\'e1sokat v\'e1ltoztatni kell a megfelel\'f5 nyomtat\'e1shoz.\par
+\par
+\b\fs28 Kateg\'f3ri\'e1k...\fs24\par
+\par
+\b0 Legels\'f5 dolog egy versennyel kapcsolatban tenni kell, hogy felvegy\'fck a verseny kateg\'f3ri\'e1kat a rendszerbe. Ez egy k\'e9t l\'e9pcs\'f5s folyamat. El\'f5sz\'f6r a kateg\'f3ria csoportokat kell megadni (Pl. Feln\lang1033\f2\'f5tt, mester, \lang1038\f3 hobbi, \lang1033\f2 gyerek, ifi,...)\lang1038\f3 , majd az egyes\'e9vel felvitt kateg\'f3ri\'e1kat kell hozz\'e1rendelni a kateg\'f3ria csoportokhoz.\par
+\par
+Az egyes kateg\'f3ri\'e1kn\'e1l megadhat\'f3:\par
+\par
+\pard\fi-1704\li1704\b\i Kateg\'f3riak\'f3d\b0\i0\tab pl. RF1\par
+\b\i Kateg\'f3ria le\'edr\'e1s\b0\i0\tab pl. Rep\'fcl\'f5 feln\'f5tt 1:72\par
+\b\i Mester\b0\i0\tab Ki lehet pip\'e1lni, ha mester kateg\'f3ri\'e1r\'f3l van sz\'f3. Ha mesteroklevelek is meg vannak adva a makettez\'f5kh\'f6z, akkor a mester okleveles makettez\'f5k csak mester kateg\'f3ri\'e1ba tudnak nevezni\par
+\b\i Szak\'e1g\b0\i0\tab Ez is a fenti, mester kateg\'f3ri\'e1s sz\'fbr\'e9shez tartozik. Pl. rep\'fcl\'f5 mester makettez\'f5 m\'e9g hobbi harcj\'e1rm\'fbben tud nevezni\par
+\b\i Korcsoport\b0\i0\tab A makettez\'f5 a sz\'fclet\'e9s\'e9nek megfelel\'f5 kateg\'f3ri\'e1ban tud csak nevezni. Pl. feln\'f5tt nem tud gyerek kateg\'f3ri\'e1ban nevezni, ha itt a korcsoport rendesen meg van adva.\lang1033\f2\par
+\pard\b\par
+\fs28 Adatkezel\'e9s...\fs24\par
+\par
+\lang1038\b0\f3 Az el\'f5nevez\'e9s \'e1ltal\'e1ban egy Internetes szerveren t\'f6rt\'e9nik, mint pl.  {\field{\*\fldinst{HYPERLINK "http://modelregistration-peterkormos.rhcloud.com"}}{\fldrslt{\ul\cf1 http://modelregistration-peterkormos.rhcloud.com}}}\b\f3\fs24 . \b0 Az el\'f5nevez\'e9s ut\'e1n az Internetes szerverr\'f5l az el\'f5nevezett makettek, makettez\'f5k adatait \'e1t kell m\'e1solni a helyi nevez\'e9shez haszn\'e1lt szerverre. Erre az \'e1tm\'e1sol\'e1sra val\'f3 az adatkezel\'e9s r\'e9sz. "Csak kateg\'f3ri\'e1k export\'e1l\'e1sa" link akkor j\'f3, ha pl. \'e9vr\'f5l \'e9vre ugyanazok, vagy nagyon hasonl\'f3 kateg\'f3ri\'e1k vannak egy versenyen. Ebben az esetben nem kell egyes\'e9vel felvenni a kateg\'f3ri\'e1kat, hanem egyben be lehet t\'f6lteni egy kor\'e1bbi ment\'e9st. Az makettes adatokat lehet k\'e9pekkel \'e9s k\'e9pek n\'e9lk\'fcl lementeni. Az adatok egy "RegistrationServlet" nev\'fb file-ba ment\'f5dnek, amit k\'e9s\'f5bb lehet haszn\'e1lni adatok import\'e1l\'e1s\'e1ra. \par
+\par
+\b\fs28 El\lang1033\f2\'f5nevez\'e9s...\fs24\par
+\lang1038\b0\f3\par
+El\'f5nevez\'e9s r\'e9szben k\'e9t f\'e9le m\'f3dot lehet \'e1ll\'edtani a rendszerben:\par
+\par
+\pard\fi-2556\li2556\b\i El\'f5nevez\'e9s kezdete-v\'e9ge\b0\i0\tab El\'f5nevez\'e9s alatt regisztr\'e1lni, m\'f3dos\'edtani, t\'f6r\'f6lni lehet maketteket, de el\'f5nevez\'e9s v\'e9ge ut\'e1n m\'e1r csak t\'f6r\'f6lni lehet.\par
+\b\i Internetes-helyi m\'f3d\b0\i0\tab Helyi m\'f3dn\'e1l ha az adminisztr\'e1tor bel\'e9p egy makettez\'f5 nev\'e9ben, akkor k\'fcl\'f6n gombok jelennek meg a nyomtat\'e1ssal kapcsolatban, melyik makettek (mind vagy egy-egy) nevez\'e9si lapot szeretne kinyomtatni az adminisztr\'e1tor.\par
+\par
+\b\fs28 Rendszer\'fczenet...\b0\fs24\par
+\par
+\pard Rendszer\'fczenet sz\'f6vegmez\'f5ben egy r\'f6vid \'fczenetet lehet megadni a makettez\'f5knek, ami a bejelentkez\'e9si oldalon, a bejelentkez\'e9s ut\'e1n jelenik meg. Ilyen \'fczenet lehet pl. hogy meddig lehet el\'f5nevezni, stb.\par
+\par
+\b\fs28 Verseny eredm\'e9nyek...\b0\fs24\par
+\par
+\cf2 (Jelenleg nem haszn\'e1lt funkci\'f3)\cf0\par
+Ezeken a linkeken kereszt\'fcl lehet a renszerbe a d\'edjazott makettek adatait felvinni, \'e9s az alapj\'e1n eredm\'e9nyh\'edrdet\'e9shez prezent\'e1ci\'f3t, oklevelet, stb. nyomtatni, megjelen\'edteni\par
+\par
+\b\fs28 VIGY\'c1ZAT!!!!\par
+\par
+\b0\fs24 Minden makettverseny ut\'e1n lehet\'f5s\'e9g van a makettek t\'f6rl\'e9s\'e9re. Ehhez a "Aktu\'e1lis verseny \'f6sszes makettj\'e9nek, kateg\'f3ri\'e1j\'e1nak t\'f6rl\'e9se" gombj\'e1ra kell kattintani. Ha voltak helyi nevez\'f5k, akikre esetleg nincs m\'e1r tov\'e1bb sz\'fcks\'e9g,  "\'d6sszes helysz\'ednen regisztr\'e1lt felhaszn\'e1l\'f3 t\'f6rl\'e9se" gombbal t\'f6r\'f6lni lehet.\lang1033\b\f2\line\b0\par
+\pard\sa200\sl276\slmult1\b\fs28 Helyi nevez\'e9s \fs24\par
+\pard\lang1038\b0\f3 Helyi nevez\'e9shez vagy az index.html oldali linket (\lang1033\f2{\field{\*\fldinst{HYPERLINK "http://localhost/makett/helyi.html"}}{\fldrslt{\ul\cf1 http://localhost/makett/helyi.html}}}\lang1038\f3\fs24  )\lang1033\b\f2\par
+\lang1038\b0\f3 oldalt kell haszn\'e1ni.\lang1033\f2\par
+\par
+\pard\sa200\sl276\slmult1\lang9\b 1 ember makettjeinek nevez\'e9se\lang1033  \b0 linkre kattint\lang1038\f3 va \lang1033\f2 a bej\'f6v\u337? oldalon a k\'f6telez\u337? mez\u337?ket (\cf2\b Csal\'e1dn\'e9v, keresztn\'e9v el\'e9g!\cf0\b0 ) ki kell t\'f6lteni.\lang1038\f3  Ment\'e9s ut\'e1n a rendszer \'e1tvisz a szok\'e1sos makett nevez\'e9si oldalra, ahol fel lehet vinni a maketteket, majd nyomtathat\'f3k az oldalr\'f3l a nevez\'e9si lapjaik.\lang1033\f2\par
+\b\i\par
+Online zs\'fbri\par
+\pard\cf2\lang1038\b0\i0\f3 (Jelenleg nem haszn\'e1lt funkci\'f3)\cf0\par
+\pard\sa200\sl276\slmult1 Ezeken a linkeken kereszt\'fcl lehet a renszerben pontoz\'f3lapra zs\'fbrizni a maketteket. Azt hogy kelyik kateg\'f3ri\'e1hoz milyen pontoz\'f3lapok tartoznak k\'fcl\'f6n be\'e1ll\'edt\'e1si file-ok vannak, ezek a .judging kezdet\'fb filenevek.\lang9\f2\par
+}
+ 

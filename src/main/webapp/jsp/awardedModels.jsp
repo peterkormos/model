@@ -19,7 +19,7 @@
 		<%
 		  List<AwardedModel> awardedModels = RegistrationServlet.servletDAO.getAwardedModels();
 
-		  List<Category> categories = RegistrationServlet.servletDAO.getCategoryList((String) session.getAttribute("show"));
+		  List<Category> categories = RegistrationServlet.servletDAO.getCategoryList(RegistrationServlet.getShowFromSession(session));
 
 		  for (Category category : categories)
 		  {

@@ -21,8 +21,7 @@
 	<form  name="input" 
 		action="../RegistrationServlet" method="post">
 
-		<input type="hidden" name="command" value="login"> <input
-			type="hidden" name="language" value="<%=languageCode%>">
+		<input type="hidden" name="command" value="login">
 		<input type="hidden" name="language" value="<%=languageCode%>">
 
 		<table border="0" height="100%" width="100%">
@@ -43,7 +42,7 @@
 								  final List<String> shows = servletDAO.getShows();
 								  for (final String show : shows)
 								  {
-								%> <input type='radio' name='show' value='<%=show%>'
+								%> <input type='radio' name='show' value='<%=StringEncoder.toBase64(show.getBytes())%>'
 								<%=(shows.size() == 1 ? " checked='checked'" : "")%> /> <FONT
 								COLOR='#ff0000'><b> <%=show%></b></FONT><br> <%
    }

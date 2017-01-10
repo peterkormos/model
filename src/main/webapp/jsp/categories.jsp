@@ -9,7 +9,7 @@
   String selectedLabel = request.getParameter("selectedLabel");
   boolean mandatory = Boolean.parseBoolean(request.getParameter("mandatory"));
 
-  final String show = (String) request.getSession().getAttribute("show");
+  final String show = RegistrationServlet.getShowFromSession(session);
   RegistrationServlet servlet = RegistrationServlet.getInstance(config);
   ServletDAO servletDAO = servlet.getServletDAO();
 
@@ -22,6 +22,8 @@
 		<option value='<%=selectedValue%>'><%=selectedLabel%></option>
 
 		<%
+		List<Category> categoryList = servletDAO.getCategoryList(show);
+		
 		  for (final CategoryGroup group : servletDAO.getCategoryGroups())
 		  {
 				if (show != null && !group.show.equals(show))
@@ -32,7 +34,7 @@
 		%>
 		<optgroup label='<%=group.show%> - <%=group.name%>'>
 			<%
-			  for (final Category category : servletDAO.getCategoryList(show))
+			  for (final Category category : categoryList)
 					{
 					  if (category.group.categoryGroupID != group.categoryGroupID)
 					  {

@@ -20,7 +20,14 @@
 </head>
 
 <body>
-Verseny: <FONT COLOR='#ff0000'><b><%=session.getAttribute("show")%></b></FONT>
+<%
+String show = (String)session.getAttribute("show");
+if (show == null)
+{
+  show = "-";
+}
+%>
+Verseny: <FONT COLOR='#ff0000'><b><%=show%></b></FONT>
 <p>
 <form name="input" id="input" action="../RegistrationServlet"
 	method="post">
@@ -112,7 +119,7 @@ Verseny: <FONT COLOR='#ff0000'><b><%=session.getAttribute("show")%></b></FONT>
 		t&ouml;rl&eacute;se</a>
 
 	<p></p>
-	Makettez&ocirc; csal&aacute;dneve:  
+	Mester Makettez&ocirc; csal&aacute;dneve:  
 	<input name="lastname" type="text" value="<%= user == null ? "" : user.lastName %>" id="lastnameID"  onChange="sendRequest();">
     - 
     <select id="selectID" name="userID">

@@ -11,13 +11,13 @@
 
   final List<Model> models = servletDAO.getModels(ServletDAO.INVALID_USERID);
 
-	final String show = (String) request.getSession().getAttribute("show");
+	final String show = RegistrationServlet.getShowFromSession(session);
 	final Iterator<Model> it = models.iterator();
 	while (it.hasNext())
 	{
 	  final Model model = it.next();
 
-	  if (!servletDAO.getCategory(model.categoryID).group.show.equals(show))
+	  if (show != null && !servletDAO.getCategory(model.categoryID).group.show.equals(show))
 	  {
 		it.remove();
 	  }

@@ -27,8 +27,8 @@
 
 <html>
 <head>
-<script type="text/javascript" src="findUser.js"></script>
-
+	<meta charset="UTF-8">
+	<script type="text/javascript" src="findUser.js"></script>
 </head>
 
 <link rel="stylesheet" href="base.css" media="screen" />

@@ -35,8 +35,17 @@
 		%>
 		<th align='center' style='white-space: nowrap'><%=language.getString("show")%>
 		</th>
+
+		<%
+		  if (withDetailing)
+		  {
+		%>
 		<th align='center' style='white-space: nowrap'><%=language.getString("email")%>
 		</th>
+		<%
+		  }
+		%>
+
 		<th align='center' style='white-space: nowrap'><%=language.getString("last.name")%>
 		</th>
 
@@ -152,7 +161,14 @@
 		<td align='center' style='white-space: nowrap'><%=category.group.show%>
 		</td>
 
+		<%
+		  if (withDetailing)
+		  {
+		%>
 		<td align='center'><%=modelsUser.email%></td>
+		<%
+		  }
+		%>
 		<td align='center'><%=modelsUser.lastName%></td>
 
 		<td align='center'><%=modelsUser.firstName%></td>

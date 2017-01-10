@@ -5,7 +5,7 @@
 
 <%
 	RegistrationServlet servlet = RegistrationServlet.getInstance(config);
-	User user = servlet.getUser(request);
+	User user = RegistrationServlet.getUser(request);
 
 	if (user.language.length() != 2)
 	{
@@ -14,7 +14,7 @@
 	}
 
 	final ResourceBundle language = servlet.getLanguage(user.language);
-	String show = (String)session.getAttribute("show");
+	String show = RegistrationServlet.getShowFromSession(session);
 	if (show == null)
 	{
 	  show = "-";

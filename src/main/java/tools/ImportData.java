@@ -3,20 +3,19 @@ package tools;
 import java.beans.XMLDecoder;
 import java.io.FileInputStream;
 import java.util.List;
-import java.util.ResourceBundle;
 import java.util.zip.GZIPInputStream;
 
-import servlet.RegistrationServlet;
 import datatype.Category;
 import datatype.CategoryGroup;
 import datatype.Model;
 import datatype.User;
+import servlet.RegistrationServlet;
 
 public class ImportData
 {
 
   public ImportData(String baseDir, String DB_Driver, String DB_URL, String DB_Username, String DB_Password, String dataFile)
-	  throws Exception
+      throws Exception
   {
 	RegistrationServlet servlet = new RegistrationServlet();
 	//    servlet.init(baseDir, DB_Driver, DB_URL, DB_Username, DB_Password, null,
@@ -29,8 +28,6 @@ public class ImportData
 	servlet.servletDAO.deleteEntries("MAK_MODEL");
 
 	servlet.servletDAO.deleteEntries("MAK_USERS");
-
-	ResourceBundle language = servlet.getLanguage("HU");
 
 	XMLDecoder d = new XMLDecoder(new GZIPInputStream(new FileInputStream(dataFile)));
 
@@ -46,7 +43,7 @@ public class ImportData
 	for (User user : users)
 	{
 	  System.out.print(".");
-	  servlet.servletDAO.registerNewUser(user, language);
+	  servlet.servletDAO.registerNewUser(user);
 	}
 
 	System.out.println("\nStoring CategoryGroups");

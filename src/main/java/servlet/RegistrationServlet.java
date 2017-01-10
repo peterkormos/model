@@ -57,7 +57,7 @@ import datatype.User;
 
 public class RegistrationServlet extends HttpServlet
 {
-  public String VERSION = "2015.04.21.";
+  public String VERSION = "2015.11.10.";
   public static Logger logger = Logger.getLogger(RegistrationServlet.class);
 
   Map<String, ResourceBundle> languages = new HashMap<String, ResourceBundle>(); // key: HU, EN, ...
@@ -181,16 +181,16 @@ public class RegistrationServlet extends HttpServlet
 	return value;
   }
 
-  protected void checkHTTPRequest(final HttpServletRequest req)
+  protected void checkHTTP(final HttpServletRequest req)
   {
 	try
 	{
-	  logger.fatal("!!! checkHTTPRequest(): queryString: " + req.getQueryString());
+	  logger.fatal("!!! checkHTTP(): queryString: " + req.getQueryString());
 	  final Enumeration<String> e = req.getParameterNames();
 	  while (e.hasMoreElements())
 	  {
 		final String param = e.nextElement();
-		logger.fatal("!!! checkHTTPRequest(): parameter: " + param + " value: " + req.getParameter(param));
+		logger.fatal("!!! checkHTTP(): parameter: " + param + " value: " + req.getParameter(param));
 	  }
 
 	  final BufferedReader in = new BufferedReader(new InputStreamReader(req.getInputStream()));
@@ -199,7 +199,7 @@ public class RegistrationServlet extends HttpServlet
 	  {
 		while ((inputLine = in.readLine()) != null)
 		{
-		  logger.fatal("!!! checkHTTPRequest(): inputLine: " + inputLine);
+		  logger.fatal("!!! checkHTTP(): inputLine: " + inputLine);
 		}
 	  }
 	}
@@ -229,7 +229,7 @@ public class RegistrationServlet extends HttpServlet
 
 	  if (ServletFileUpload.isMultipartContent(request))
 	  {
-		process_importDataRequest(request, response);
+		importData(request, response);
 		return;
 	  }
 
@@ -237,13 +237,12 @@ public class RegistrationServlet extends HttpServlet
 	  String command = null;
 	  if (pathInfo != null)
 	  {
-		command = processRestfulRequest(request, response, pathInfo.substring(1));
+		command = processRestful(request, response, pathInfo.substring(1));
 	  }
 	  else
 	  {
 		command = ServletUtil.getRequestAttribute(request, "command");
-		getClass().getMethod("process_" + command + "Request",
-		    new Class[] { HttpServletRequest.class, HttpServletResponse.class }).invoke(this, new Object[] { request, response });
+		handleRequest(request, response, command);
 	  }
 
 	  if (logger.isTraceEnabled())
@@ -279,20 +278,19 @@ public class RegistrationServlet extends HttpServlet
 	}
   }
 
-  private String processRestfulRequest(HttpServletRequest request, HttpServletResponse response, String pathInfo)
-	  throws Exception
+  private String processRestful(HttpServletRequest request, HttpServletResponse response, String pathInfo) throws Exception
   {
 	if (pathInfo.indexOf('/') > -1)
 	{
-	  String[] splitText = pathInfo.split("/");
-	  String command = splitText[0];
+	  final String[] splitText = pathInfo.split("/");
+	  final String command = splitText[0];
 
 	  if (Command.LOADIMAGE.name().equals(command))
 	  {
 		response.setContentType("image/jpeg");
 
-		String params = splitText[1];
-		int modelId = Integer.parseInt(params.substring(params.indexOf("=") + 1));
+		final String params = splitText[1];
+		final int modelId = Integer.parseInt(params.substring(params.indexOf("=") + 1));
 		try
 		{
 		  loadImage(modelId, response.getOutputStream());
@@ -305,13 +303,17 @@ public class RegistrationServlet extends HttpServlet
 	}
 	else
 	{
-
-	  getClass()
-		  .getMethod("process_" + pathInfo + "Request", new Class[] { HttpServletRequest.class, HttpServletResponse.class })
-		  .invoke(this, new Object[] { request, response });
+	  handleRequest(request, response, pathInfo);
 	  return pathInfo;
 	}
 
+  }
+
+  private void handleRequest(HttpServletRequest request, HttpServletResponse response, String command)
+      throws IllegalAccessException, InvocationTargetException, NoSuchMethodException
+  {
+	getClass().getMethod(command, new Class[] { HttpServletRequest.class, HttpServletResponse.class }).invoke(this,
+	    new Object[] { request, response });
   }
 
   private void writeErrorResponse(final HttpServletResponse response, final String message) throws IOException
@@ -332,7 +334,7 @@ public class RegistrationServlet extends HttpServlet
 	response.getOutputStream().write(message.toString().getBytes());
   }
 
-  public void process_directLoginRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void directLogin(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final Enumeration parameters = request.getParameterNames();
 	while (parameters.hasMoreElements())
@@ -349,8 +351,7 @@ public class RegistrationServlet extends HttpServlet
 	}
   }
 
-  public void process_directPrintModelsRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void directPrintModels(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final Enumeration parameters = request.getParameterNames();
 	while (parameters.hasMoreElements())
@@ -368,7 +369,7 @@ public class RegistrationServlet extends HttpServlet
 	}
   }
 
-  public void process_getModelInfoRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void getModelInfo(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final String modelID = ServletUtil.getRequestAttribute(request, "modelID");
 
@@ -385,8 +386,7 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_getSimilarLastNamesRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void getSimilarLastNames(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final String lastname = ServletUtil.getRequestAttribute(request, "lastname");
 
@@ -402,7 +402,7 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_loginRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void login(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final String email = ServletUtil.getRequestAttribute(request, "email");
 	final ResourceBundle language = getLanguage(ServletUtil.getRequestAttribute(request, "language"));
@@ -411,31 +411,33 @@ public class RegistrationServlet extends HttpServlet
 	{
 	  final User user = servletDAO.getUser(email);
 
-	  if (user.password.equals(servletDAO.encodeString(ServletUtil.getRequestAttribute(request, "password"))) && user.enabled)
+	  final String passwordInRequest = servletDAO.encodeString(ServletUtil.getRequestAttribute(request, "password"));
+
+	  if (StringEncoder.encode(passwordInRequest).equals(user.password) && user.enabled)
 	  {
 		loginSuccessful(request, response, user);
 	  }
 	  else
 	  {
-		logger.info("process_loginRequest(): Authentication failed. email: " + email + " user.password: [" + user.password
-		    + "] HTTP password: [" + ServletUtil.getRequestAttribute(request, "password") + "] user.enabled: " + user.enabled);
+		logger.info("login(): Authentication failed. email: " + email + " user.password: [" + user.password + "] HTTP password: ["
+		    + ServletUtil.getRequestAttribute(request, "password") + "] user.enabled: " + user.enabled);
 
-		writeErrorResponse(response, language.getString("authentication.failed") + " " + language.getString("email") + ": ["
-		    + email + "]");
+		writeErrorResponse(response,
+		    language.getString("authentication.failed") + " " + language.getString("email") + ": [" + email + "]");
 	  }
 	}
 	catch (final Exception ex)
 	{
-	  logger.info("process_loginRequest(): Authentication failed. email: " + email, ex);
+	  logger.info("login(): Authentication failed. email: " + email, ex);
 
-	  writeErrorResponse(response, language.getString("authentication.failed") + " " + language.getString("email") + ": ["
-		  + email + "]");
+	  writeErrorResponse(response,
+	      language.getString("authentication.failed") + " " + language.getString("email") + ": [" + email + "]");
 	}
 
   }
 
   private void loginSuccessful(final HttpServletRequest request, final HttpServletResponse response, final User user)
-	  throws IOException, Exception
+      throws IOException
   {
 	String show;
 
@@ -448,20 +450,19 @@ public class RegistrationServlet extends HttpServlet
 	  show = null;
 	}
 
-	logger.info("process_loginRequest(): login successful. email: " + user.email + " user.language: " + user.language + " show: "
-	    + show);
+	logger.info("login(): login successful. email: " + user.email + " user.language: " + user.language + " show: " + show);
 
 	final HttpSession session = request.getSession(true);
 	session.setAttribute("userID", user);
 	if (show != null)
 	{
-	  session.setAttribute("show", show);
+	  session.setAttribute("show", StringEncoder.fromBase64(show));
 	}
 
 	response.sendRedirect("jsp/main.jsp");
   }
 
-  public void process_sqlRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void sql(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final StringBuffer buff = servletDAO.execute(ServletUtil.getRequestAttribute(request, "sql"));
 
@@ -478,26 +479,32 @@ public class RegistrationServlet extends HttpServlet
 	}
   }
 
-  public void process_reminderRequest(final HttpServletRequest request,
+  public void reminder(final HttpServletRequest request,
 
-  final HttpServletResponse response) throws Exception
+      final HttpServletResponse response) throws Exception
   {
 	final User user = servletDAO.getUser(ServletUtil.getRequestAttribute(request, "email"));
-	sendEmail(user, true);
+	final String newPassword = "abc123";
+	user.setPassword(StringEncoder.encode(newPassword));
+	servletDAO.modifyUser(user, user);
 
 	final ResourceBundle language = getLanguage(user.language);
 
 	final StringBuffer buff = new StringBuffer();
 	buff.append("<html><body>");
 
-	buff.append(language.getString("email.was.sent"));
+	buff.append("<FONT COLOR='#ff0000'><B>Your password is set to: " + newPassword + "</B></FONT>");
+	buff.append("<BR>");
+	buff.append(
+	    "<FONT COLOR='#ff0000'><B>Please login with: " + newPassword + " and change it after your next login!</B></FONT>");
+	//	buff.append(language.getString("email.was.sent"));
 	buff.append("<p>");
 	buff.append("<a href='../index.html'>" + language.getString("proceed.to.login") + "</a></body></html>");
 
 	writeResponse(response, buff);
   }
 
-  public void process_batchAddModelRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void batchAddModel(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
 	final ResourceBundle language = getLanguage(languageCode);
@@ -522,16 +529,15 @@ public class RegistrationServlet extends HttpServlet
 	  }
 
 	  // register model for new user...
-	  if (i == 1
-		  || !(ServletUtil.getRequestAttribute(request, "firstname" + httpParameterPostTag) + ServletUtil.getRequestAttribute(
-		      request, "lastname" + httpParameterPostTag))
-		      .equals((ServletUtil.getRequestAttribute(request, "firstname" + String.valueOf(i - 1)) + ServletUtil
-		          .getRequestAttribute(request, "lastname" + String.valueOf(i - 1)))))
+	  if (i == 1 || !(ServletUtil.getRequestAttribute(request, "firstname" + httpParameterPostTag)
+	      + ServletUtil.getRequestAttribute(request, "lastname" + httpParameterPostTag))
+	          .equals((ServletUtil.getRequestAttribute(request, "firstname" + String.valueOf(i - 1))
+	              + ServletUtil.getRequestAttribute(request, "lastname" + String.valueOf(i - 1)))))
 	  {
-		if (user != null && user.email != null && i > 1)
-		{
-		  sendEmail(user, true);
-		}
+		//		if (user != null && user.email != null && i > 1)
+		//		{
+		//		  sendEmail(user, true);
+		//		}
 
 		user = directRegisterUser(request, language, httpParameterPostTag);
 		users.add(user);
@@ -564,8 +570,7 @@ public class RegistrationServlet extends HttpServlet
 	response.getOutputStream().write("<script>window.print();</script>".getBytes());
   }
 
-  public void process_directRegisterRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void directRegister(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	// set language library
 	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
@@ -579,7 +584,7 @@ public class RegistrationServlet extends HttpServlet
 	response.sendRedirect("../jsp/main.jsp");
   }
 
-  public void process_exportDataRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void exportData(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 
 	final List data = new ArrayList(4);
@@ -599,10 +604,19 @@ public class RegistrationServlet extends HttpServlet
 	e.close();
   }
 
-  public void process_exportCategoryDataRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public static String getShowFromReqest(final HttpServletRequest request)
   {
-	final String show = (String) request.getSession().getAttribute("show");
+	return getShowFromSession(request.getSession());
+  }
+
+  public static String getShowFromSession(final HttpSession session)
+  {
+	return (String) session.getAttribute("show");
+  }
+
+  public void exportCategoryData(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  {
+	final String show = getShowFromReqest(request);
 
 	final List data = new ArrayList(4);
 	data.add(new LinkedList<User>());
@@ -627,7 +641,7 @@ public class RegistrationServlet extends HttpServlet
 	e.close();
   }
 
-  public void process_importDataRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void importData(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final DiskFileItemFactory factory = new DiskFileItemFactory();
 	final ServletFileUpload upload = new ServletFileUpload(factory);
@@ -650,7 +664,7 @@ public class RegistrationServlet extends HttpServlet
   }
 
   private void processUploadedFile(final HttpServletRequest request, final HttpServletResponse response, FileItem item,
-	  Map<String, String> parameters) throws IOException, SQLException, Exception
+      Map<String, String> parameters) throws IOException, SQLException, Exception
   {
 	if ("imageFile".equals(item.getFieldName()))
 	{
@@ -674,8 +688,8 @@ public class RegistrationServlet extends HttpServlet
 	}
   }
 
-  private StringBuffer importZip(final HttpServletRequest request, final InputStream stream) throws IOException, SQLException,
-	  Exception, IOError
+  private StringBuffer importZip(final HttpServletRequest request, final InputStream stream)
+      throws IOException, SQLException, Exception, IOError
   {
 	final GZIPInputStream e = new GZIPInputStream(stream);
 	final List<List> data = (List<List>) Serialization.deserialize(e);
@@ -690,7 +704,7 @@ public class RegistrationServlet extends HttpServlet
 	for (final User user : users)
 	{
 	  buff.append(".");
-	  servletDAO.registerNewUser(user, getLanguage(getUser(request).language));
+	  servletDAO.registerNewUser(user);
 	  for (final ModelClass modelClass : user.getModelClass())
 	  {
 		servletDAO.saveModelClass(user.userID, modelClass);
@@ -753,10 +767,9 @@ public class RegistrationServlet extends HttpServlet
 	return buff;
   }
 
-  public void process_deleteDataForShowRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void deleteDataForShow(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	final String show = (String) request.getSession().getAttribute("show");
+	final String show = getShowFromReqest(request);
 
 	for (final AwardedModel awardedModel : servletDAO.getAwardedModels())
 	{
@@ -791,20 +804,20 @@ public class RegistrationServlet extends HttpServlet
   }
 
   private User directRegisterUser(final HttpServletRequest request, final ResourceBundle language,
-	  final String httpParameterPostTag) throws Exception
+      final String httpParameterPostTag) throws Exception
   {
 	final String password = "-";
 	final String userName = ServletUtil.getRequestAttribute(request, "lastname" + httpParameterPostTag)
 	    + ServletUtil.getRequestAttribute(request, "firstname" + httpParameterPostTag) + User.LOCAL_USER
-		+ System.currentTimeMillis();
+	    + System.currentTimeMillis();
 
-	servletDAO.registerNewUser(createUser(request, userName, password, httpParameterPostTag), language);
+	servletDAO.registerNewUser(createUser(request, userName, password, httpParameterPostTag));
 
 	final User user = servletDAO.getUser(userName);
 	return user;
   }
 
-  public void process_registerRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void register(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final String email = ServletUtil.getRequestAttribute(request, "email");
 	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
@@ -812,8 +825,8 @@ public class RegistrationServlet extends HttpServlet
 
 	if (email.trim().length() == 0 || email.equals("-") || email.indexOf("@") == -1)
 	{
-	  writeErrorResponse(response, language.getString("authentication.failed") + " " + language.getString("email") + ": ["
-		  + email + "]");
+	  writeErrorResponse(response,
+	      language.getString("authentication.failed") + " " + language.getString("email") + ": [" + email + "]");
 	  return;
 	}
 
@@ -832,7 +845,7 @@ public class RegistrationServlet extends HttpServlet
 	}
 
 	final User user = createUser(request, email);
-	servletDAO.registerNewUser(user, language);
+	servletDAO.registerNewUser(user);
 
 	sendEmail(user, true);
 
@@ -847,7 +860,7 @@ public class RegistrationServlet extends HttpServlet
 
   }
 
-  public void process_modifyUserRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void modifyUser(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final User oldUser = getUser(request);
 	final ResourceBundle language = getLanguage(oldUser.language);
@@ -857,19 +870,19 @@ public class RegistrationServlet extends HttpServlet
 	if (!"ADMIN".equals(newUser.language) && !newUser.isLocalUser()
 	    && (newUser.email.trim().length() == 0 || newUser.email.equals("-") || newUser.email.indexOf("@") == -1))
 	{
-	  writeErrorResponse(response, language.getString("authentication.failed") + " " + language.getString("email") + ": ["
-		  + newUser.email + "]");
+	  writeErrorResponse(response,
+	      language.getString("authentication.failed") + " " + language.getString("email") + ": [" + newUser.email + "]");
 	  return;
 	}
 
-	servletDAO.modifyUser(newUser, oldUser, language);
+	servletDAO.modifyUser(newUser, oldUser);
 
 	request.getSession(false).setAttribute("userID", servletDAO.getUser(oldUser.userID));
 
 	response.sendRedirect("../jsp/main.jsp");
   }
 
-  public void process_newUserIDsRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void newUserIDs(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final User user = getUser(request);
 	final ResourceBundle language = getLanguage(user.language);
@@ -885,8 +898,7 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_newUserIDsFromOneRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void newUserIDsFromOne(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final User user = getUser(request);
 	final ResourceBundle language = getLanguage(user.language);
@@ -902,7 +914,7 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_deleteUserRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void deleteUser(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final User user = getUser(request);
 	final ResourceBundle language = getLanguage(user.language);
@@ -933,8 +945,7 @@ public class RegistrationServlet extends HttpServlet
 	String paramNames[] = new String[] { language.getString("last.name"), language.getString("first.name"),
 	    language.getString("year.of.birth"), language.getString("city"), language.getString("country") };
 
-	String paramValues[] = new String[] { user.lastName, user.firstName, String.valueOf(user.yearOfBirth), user.city,
-	    user.country
+	String paramValues[] = new String[] { user.lastName, user.firstName, String.valueOf(user.yearOfBirth), user.city, user.country
 
 	};
 
@@ -950,11 +961,11 @@ public class RegistrationServlet extends HttpServlet
 
 	if (insertUserDetails)
 	{
-	  paramNames = new String[] { language.getString("email"), language.getString("password"),
+	  paramNames = new String[] { language.getString("email"),
 
-	  language.getString("language"), language.getString("address"), language.getString("telephone") };
+	      language.getString("language"), language.getString("address"), language.getString("telephone") };
 
-	  paramValues = new String[] { user.email, user.password, user.language, user.address, user.telephone
+	  paramValues = new String[] { user.email, user.language, user.address, user.telephone
 
 	  };
 
@@ -987,15 +998,15 @@ public class RegistrationServlet extends HttpServlet
 	  for (final Model model : models)
 	  {
 		message.append("<p>");
-		paramNames = new String[] { language.getString("modelID"), language.getString("models.name"),
-		    language.getString("scale"), language.getString("models.identification"), language.getString("models.markings"),
+		paramNames = new String[] { language.getString("modelID"), language.getString("models.name"), language.getString("scale"),
+		    language.getString("models.identification"), language.getString("models.markings"),
 		    language.getString("models.producer"), language.getString("show"), language.getString("category.code"),
 		    language.getString("category.description") };
 
 		final Category category = servletDAO.getCategory(model.categoryID);
 
-		paramValues = new String[] { String.valueOf(model.modelID), model.name, model.scale, model.identification,
-		    model.markings, model.producer, category.group.show, category.categoryCode, category.categoryDescription };
+		paramValues = new String[] { String.valueOf(model.modelID), model.name, model.scale, model.identification, model.markings,
+		    model.producer, category.group.show, category.categoryCode, category.categoryDescription };
 
 		for (int i = 0; i < paramValues.length; i++)
 		{
@@ -1011,15 +1022,16 @@ public class RegistrationServlet extends HttpServlet
 	message.append("</body></html>");
 
 	ServletUtil.sendEmail(getServerConfigParamter("email.smtpServer"), getServerConfigParamter("email.from"), user.email,
-	    language.getString("email.subject"), message.toString(),
-	    Boolean.parseBoolean(getServerConfigParamter("email.debugSMTP")), getServerConfigParamter("email.password"));
+	    language.getString("email.subject"), message.toString(), Boolean.parseBoolean(getServerConfigParamter("email.debugSMTP")),
+	    getServerConfigParamter("email.password"));
   }
 
-  public void process_addCategoryRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void addCategory(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
-	final Category category = new Category(servletDAO.getNextID("CATEGORY", "CATEGORY_ID"), ServletUtil.getRequestAttribute(
-	    request, "categorycode"), ServletUtil.getRequestAttribute(request, "categorydescription"), servletDAO.getCategoryGroup(
-	    Integer.parseInt(ServletUtil.getRequestAttribute(request, "categoryGroupID")), servletDAO.getCategoryGroups()),
+	final Category category = new Category(servletDAO.getNextID("CATEGORY", "CATEGORY_ID"),
+	    ServletUtil.getRequestAttribute(request, "categorycode"), ServletUtil.getRequestAttribute(request, "categorydescription"),
+	    servletDAO.getCategoryGroup(Integer.parseInt(ServletUtil.getRequestAttribute(request, "categoryGroupID")),
+	        servletDAO.getCategoryGroups()),
 	    isCheckedIn(request, "master"), ModelClass.valueOf(ServletUtil.getRequestAttribute(request, "modelClass")),
 	    AgeGroup.valueOf(ServletUtil.getRequestAttribute(request, "ageGroup"))
 
@@ -1030,8 +1042,7 @@ public class RegistrationServlet extends HttpServlet
 	response.sendRedirect("jsp/main.jsp");
   }
 
-  public void process_saveModelClassRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void saveModelClass(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final int userID = Integer.valueOf(ServletUtil.getRequestAttribute(request, "userID"));
 
@@ -1040,8 +1051,7 @@ public class RegistrationServlet extends HttpServlet
 	response.sendRedirect("jsp/main.jsp");
   }
 
-  public void process_addCategoryGroupRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void addCategoryGroup(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final CategoryGroup categoryGroup = new CategoryGroup(servletDAO.getNextID("CATEGORY_GROUP", "CATEGORY_group_ID"),
 	    ServletUtil.getRequestAttribute(request, "show"), ServletUtil.getRequestAttribute(request, "group"));
@@ -1051,24 +1061,22 @@ public class RegistrationServlet extends HttpServlet
 	response.sendRedirect("jsp/main.jsp");
   }
 
-  public void process_listUsersRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void listUsers(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	writeResponse(response, getUserTable(getUser(request).language));
   }
 
-  public void process_listCategoriesRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void listCategories(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final StringBuffer buff = new StringBuffer();
 
-	getCategoryTable(buff, servletDAO.getCategoryList((String) request.getSession().getAttribute("show")),
-	    getLanguage(getUser(request).language));
+	getCategoryTable(buff, servletDAO.getCategoryList(getShowFromReqest(request)), getLanguage(getUser(request).language));
 
 	writeResponse(response, buff);
   }
 
   private void getCategoryTable(final StringBuffer buff, final List<Category> categories, final ResourceBundle language)
-	  throws SQLException
+      throws SQLException
   {
 	buff.append("<table border=1>");
 	buff.append("<tr>");
@@ -1264,8 +1272,7 @@ public class RegistrationServlet extends HttpServlet
 	return buff;
   }
 
-  public void process_inputForAddCategoryRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForAddCategory(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final ResourceBundle language = getLanguage(getUser(request).language);
 
@@ -1278,7 +1285,7 @@ public class RegistrationServlet extends HttpServlet
 	buff.append("<body>");
 
 	buff.append("<form "
-	//		+ "accept-charset=\"UTF-8\" "
+	    //		+ "accept-charset=\"UTF-8\" "
 	    + "name='input' action='RegistrationServlet' method='POST'>");
 	buff.append("<input type='hidden' name='command' value='addCategory'>");
 	buff.append("<table border='0'>");
@@ -1291,7 +1298,7 @@ public class RegistrationServlet extends HttpServlet
 
 	buff.append("<td>");
 
-	final String show = (String) request.getSession().getAttribute("show");
+	final String show = getShowFromReqest(request);
 	for (final CategoryGroup group : servletDAO.getCategoryGroups())
 	{
 	  if (!group.show.equals(show))
@@ -1369,16 +1376,14 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_inputForModifyModelRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForModifyModel(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final int modelID = Integer.parseInt(ServletUtil.getRequestAttribute(request, "modelID"));
 
 	getModelForm(request, response, "modifyModel", "modify", modelID);
   }
 
-  public void process_inputForAddModelRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForAddModel(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	if (preRegistrationAllowed || onSiteUse)
 	{
@@ -1390,7 +1395,7 @@ public class RegistrationServlet extends HttpServlet
 	}
   }
 
-  public void process_modifyModelRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void modifyModel(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final int modelID = Integer.valueOf(ServletUtil.getRequestAttribute(request, "modelID"));
 
@@ -1402,7 +1407,7 @@ public class RegistrationServlet extends HttpServlet
 	response.sendRedirect("jsp/main.jsp");
   }
 
-  public void process_addModelRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void addModel(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final Model model = createModel(servletDAO.getNextID("MODEL", "MODEL_ID"), getUser(request).userID, request);
 
@@ -1417,15 +1422,17 @@ public class RegistrationServlet extends HttpServlet
   }
 
   private Model createModel(final int modelID, final int userID, final HttpServletRequest request,
-	  final String httpParameterPostTag) throws Exception
+      final String httpParameterPostTag) throws Exception
   {
-	return new Model(modelID, userID, Integer.parseInt(ServletUtil.getRequestAttribute(request, "categoryID"
-	    + httpParameterPostTag)), ServletUtil.getRequestAttribute(request, "modelscale" + httpParameterPostTag),
-	    ServletUtil.getRequestAttribute(request, "modelname" + httpParameterPostTag), ServletUtil.getRequestAttribute(request,
-	        "modelproducer" + httpParameterPostTag), ServletUtil.getOptionalRequestAttribute(request, "modelcomment"
-	        + httpParameterPostTag), ServletUtil.getOptionalRequestAttribute(request, "identification" + httpParameterPostTag),
-	    ServletUtil.getOptionalRequestAttribute(request, "markings" + httpParameterPostTag), isCheckedIn(request, "gluedToBase"
-	        + httpParameterPostTag), getDetailing(request));
+	return new Model(modelID, userID,
+	    Integer.parseInt(ServletUtil.getRequestAttribute(request, "categoryID" + httpParameterPostTag)),
+	    ServletUtil.getRequestAttribute(request, "modelscale" + httpParameterPostTag),
+	    ServletUtil.getRequestAttribute(request, "modelname" + httpParameterPostTag),
+	    ServletUtil.getRequestAttribute(request, "modelproducer" + httpParameterPostTag),
+	    ServletUtil.getOptionalRequestAttribute(request, "modelcomment" + httpParameterPostTag),
+	    ServletUtil.getOptionalRequestAttribute(request, "identification" + httpParameterPostTag),
+	    ServletUtil.getOptionalRequestAttribute(request, "markings" + httpParameterPostTag),
+	    isCheckedIn(request, "gluedToBase" + httpParameterPostTag), getDetailing(request));
   }
 
   boolean isCheckedIn(final HttpServletRequest request, final String parameter) throws Exception
@@ -1448,7 +1455,7 @@ public class RegistrationServlet extends HttpServlet
 	{
 	  final String group = Detailing.DETAILING_GROUPS[i];
 
-	  List<Boolean> criterias = new LinkedList<Boolean>();
+	  final List<Boolean> criterias = new LinkedList<Boolean>();
 	  criterias.add(isCheckedIn(request, "detailing." + group + ".externalSurface"));
 	  criterias.add(isCheckedIn(request, "detailing." + group + ".cockpit"));
 	  criterias.add(isCheckedIn(request, "detailing." + group + ".engine"));
@@ -1474,8 +1481,7 @@ public class RegistrationServlet extends HttpServlet
 	return (User) session.getAttribute("userID");
   }
 
-  public void process_inputForDeleteModelRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForDeleteModel(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final List<Model> models = servletDAO.getModels(getUser(request).userID);
 
@@ -1495,8 +1501,7 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_inputForSelectModelForModifyRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForSelectModelForModify(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final User user = getUser(request);
 
@@ -1518,8 +1523,7 @@ public class RegistrationServlet extends HttpServlet
 	}
   }
 
-  public void process_inputForPhotoUploadRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForPhotoUpload(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final StringBuffer buff = new StringBuffer();
 	final User user = getUser(request);
@@ -1547,8 +1551,8 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public StringBuffer inputForSelectModel(final User user, final String action, final String submitLabel, final List<Model> models)
-	  throws Exception
+  public StringBuffer inputForSelectModel(final User user, final String action, final String submitLabel,
+      final List<Model> models) throws Exception
   {
 	final StringBuffer buff = new StringBuffer();
 
@@ -1577,43 +1581,41 @@ public class RegistrationServlet extends HttpServlet
 	return buff;
   }
 
-  public void process_inputForDeleteUsersRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForDeleteUsers(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final String language = getUser(request).language;
 
 	selectUser(request, response, "deleteUsers", getLanguage(language).getString("delete"), language);
   }
 
-  public void process_inputForLoginUserRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForLoginUser(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final String language = ServletUtil.getRequestAttribute(request, "language");
 	selectUser(request, response, "directLogin", getLanguage(language).getString("login"), language);
   }
 
-  public void process_inputForPrintRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void inputForPrint(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final String language = ServletUtil.getRequestAttribute(request, "language");
 	selectUser(request, response, "directPrintModels", getLanguage(language).getString("print.models"), language);
   }
 
   private void selectUser(final HttpServletRequest request, final HttpServletResponse response, final String command,
-	  final String submitLabel, final String language) throws Exception, IOException
+      final String submitLabel, final String language) throws Exception, IOException
   {
 	final StringBuffer buff = new StringBuffer();
 
-	final String show = (String) request.getSession().getAttribute("show");
+	final String show = getShowFromReqest(request);
 
 	buff.append("<html>"
-	//		+ "<head><meta http-equiv='Content-Type' content='text/html; charset=UTF-8' /></head>"
+	    //		+ "<head><meta http-equiv='Content-Type' content='text/html; charset=UTF-8' /></head>"
 	    + "<body>");
 
 	buff.append("<form name='input' action='RegistrationServlet' method='put' >");
 	buff.append("<input type='hidden' name='command' value='" + command + "'>");
 	if (show != null)
 	{
-	  buff.append("<input type='hidden' name='show' value='" + show + "'>");
+	  buff.append("<input type='hidden' name='show' value='" + StringEncoder.toBase64(show.getBytes()) + "'>");
 	}
 	buff.append("<input type='hidden' name='language' value='" + language + "'>");
 
@@ -1626,9 +1628,10 @@ public class RegistrationServlet extends HttpServlet
 	{
 	  final User user = users.get(i);
 
-	  buff.append("<input type='checkbox' name='userID" + i + "' value='" + user.userID + "' onClick='document.input.submit()'/>");
+	  buff.append(
+	      "<input type='checkbox' name='userID" + i + "' value='" + user.userID + "' onClick='document.input.submit()'/>");
 	  buff.append(user.lastName + " " + user.firstName + " (" + user.userID + " - " + user.email + " - " + user.yearOfBirth
-		  + " - " + user.country + " - " + user.city + " - " + user.address + " - " + user.telephone + ")<br>");
+	      + " - " + user.country + " - " + user.city + " - " + user.address + " - " + user.telephone + ")<br>");
 	}
 
 	// buff.append("<p><input name='deleteUsers' type='submit' value='"
@@ -1638,7 +1641,7 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_deleteUsersRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void deleteUsers(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final Enumeration parameters = request.getParameterNames();
 	while (parameters.hasMoreElements())
@@ -1657,8 +1660,7 @@ public class RegistrationServlet extends HttpServlet
 
   }
 
-  public void process_deletedirectUsersRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void deletedirectUsers(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	for (final User user : servletDAO.getUsers())
 	{
@@ -1672,8 +1674,7 @@ public class RegistrationServlet extends HttpServlet
 
   }
 
-  public void process_setSystemParameterRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void setSystemParameter(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	servletDAO.setSystemParameter(ServletUtil.getRequestAttribute(request, "paramName"),
 	    servletDAO.encodeString(ServletUtil.getRequestAttribute(request, "paramValue")));
@@ -1682,7 +1683,7 @@ public class RegistrationServlet extends HttpServlet
 
   }
 
-  public void process_deleteModelRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void deleteModel(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	servletDAO.deleteModel(request);
 
@@ -1690,8 +1691,7 @@ public class RegistrationServlet extends HttpServlet
 
   }
 
-  public void process_deleteAwardedModelRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void deleteAwardedModel(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	servletDAO.deleteAwardedModel(request);
 
@@ -1699,8 +1699,7 @@ public class RegistrationServlet extends HttpServlet
 
   }
 
-  public void process_inputForDeleteCategoryRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForDeleteCategory(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final StringBuffer buff = new StringBuffer();
 	final ResourceBundle language = getLanguage(getUser(request).language);
@@ -1718,8 +1717,7 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_inputForDeleteCategoryGroupRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForDeleteCategoryGroup(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final StringBuffer buff = new StringBuffer();
 	final ResourceBundle language = getLanguage(getUser(request).language);
@@ -1729,7 +1727,7 @@ public class RegistrationServlet extends HttpServlet
 	buff.append("<form name='input' action='RegistrationServlet' method='put'>");
 	buff.append("<input type='hidden' name='command' value='deleteCategoryGroup'>");
 
-	final String show = (String) request.getSession().getAttribute("show");
+	final String show = getShowFromReqest(request);
 
 	for (final CategoryGroup group : servletDAO.getCategoryGroups())
 	{
@@ -1748,8 +1746,7 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_deleteCategoryGroupRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void deleteCategoryGroup(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	servletDAO.deleteCategoryGroup(request);
 
@@ -1757,8 +1754,7 @@ public class RegistrationServlet extends HttpServlet
 
   }
 
-  public void process_deleteCategoryRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void deleteCategory(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	servletDAO.deleteCategory(request);
 
@@ -1766,8 +1762,7 @@ public class RegistrationServlet extends HttpServlet
 
   }
 
-  public void process_printAllModelsRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void printAllModels(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final ResourceBundle language = getLanguage(getUser(request).language);
 
@@ -1787,8 +1782,7 @@ public class RegistrationServlet extends HttpServlet
 	showPrintDialog(response);
   }
 
-  public void process_printCardsForAllModelsRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void printCardsForAllModels(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final User user = getUser(request);
 	final ResourceBundle language = getLanguage(user.language);
@@ -1797,7 +1791,7 @@ public class RegistrationServlet extends HttpServlet
 	final int rows = 4;
 
 	final List<Model> allModels = new LinkedList<Model>();
-	final List<Category> categories = servletDAO.getCategoryList((String) request.getSession().getAttribute("show"));
+	final List<Category> categories = servletDAO.getCategoryList(getShowFromReqest(request));
 	for (final Category category : categories)
 	{
 	  final List<Model> models = servletDAO.getModelsInCategory(category.categoryID);
@@ -1821,7 +1815,7 @@ public class RegistrationServlet extends HttpServlet
 	showPrintDialog(response);
   }
 
-  public void process_printMyModelsRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void printMyModels(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final User user = getUser(request);
 
@@ -1855,17 +1849,17 @@ public class RegistrationServlet extends HttpServlet
   }
 
   private void printModels(final HttpServletRequest request, final HttpServletResponse response, final ResourceBundle language,
-	  final int userID) throws Exception, IOException
+      final int userID) throws Exception, IOException
   {
 	writeResponse(response, printModels(language, userID, request));
   }
 
   public StringBuffer printModels(final ResourceBundle language, final int userID, final HttpServletRequest request)
-	  throws Exception, IOException
+      throws Exception, IOException
   {
 	final List<Model> models = servletDAO.getModels(userID);
 
-	final String show = (String) request.getSession().getAttribute("show");
+	final String show = getShowFromReqest(request);
 	final Iterator<Model> it = models.iterator();
 	while (it.hasNext())
 	{
@@ -1902,7 +1896,7 @@ public class RegistrationServlet extends HttpServlet
   }
 
   StringBuffer printModels(final ResourceBundle language, final User user, final List<Model> models,
-	  final StringBuffer printBuffer, final int rows, final int cols, boolean pageBreak) throws Exception, IOException
+      final StringBuffer printBuffer, final int rows, final int cols, boolean pageBreak) throws Exception, IOException
   {
 	// System.out.println(models.size() + " " + rows + " " + cols);
 
@@ -1928,40 +1922,40 @@ public class RegistrationServlet extends HttpServlet
 		if (model != null)
 		{
 		  String print = printBuffer.toString().replaceAll("__LASTNAME__", String.valueOf(user.lastName))
-			  .replaceAll("__FIRSTNAME__", String.valueOf(user.firstName))
-			  .replaceAll("__YEAROFBIRTH__", String.valueOf(user.yearOfBirth))
+		      .replaceAll("__FIRSTNAME__", String.valueOf(user.firstName))
+		      .replaceAll("__YEAROFBIRTH__", String.valueOf(user.yearOfBirth))
 
-			  .replaceAll("__CITY__", String.valueOf(user.city)).replaceAll("__COUNTRY__", String.valueOf(user.country))
+		      .replaceAll("__CITY__", String.valueOf(user.city)).replaceAll("__COUNTRY__", String.valueOf(user.country))
 
-			  .replaceAll("__USER_ID__", String.valueOf(model.userID)).replaceAll("__MODEL_ID__", String.valueOf(model.modelID))
-			  .replaceAll("__YEAR_OF_BIRTH__", String.valueOf(servletDAO.getUser(model.userID).yearOfBirth))
-			  .replaceAll("__MODEL_SCALE__", model.scale)
-			  .replaceAll("__CATEGORY_CODE__", servletDAO.getCategory(model.categoryID).categoryCode)
-			  .replaceAll("__MODEL_NAME__", model.name).replaceAll("__MODEL_NATIONALITY__", model.markings)
-			  .replaceAll("__MODEL_IDENTIFICATION__", model.identification).replaceAll("__MODEL_PRODUCER__", model.producer)
-			  .replaceAll("__MODEL_COMMENT__", model.comment).replaceAll("__GLUED_TO_BASE__", model.gluedToBase ?
+		      .replaceAll("__USER_ID__", String.valueOf(model.userID)).replaceAll("__MODEL_ID__", String.valueOf(model.modelID))
+		      .replaceAll("__YEAR_OF_BIRTH__", String.valueOf(servletDAO.getUser(model.userID).yearOfBirth))
+		      .replaceAll("__MODEL_SCALE__", model.scale)
+		      .replaceAll("__CATEGORY_CODE__", servletDAO.getCategory(model.categoryID).categoryCode)
+		      .replaceAll("__MODEL_NAME__", model.name).replaceAll("__MODEL_NATIONALITY__", model.markings)
+		      .replaceAll("__MODEL_IDENTIFICATION__", model.identification).replaceAll("__MODEL_PRODUCER__", model.producer)
+		      .replaceAll("__MODEL_COMMENT__", model.comment).replaceAll("__GLUED_TO_BASE__", model.gluedToBase ?
 
-			  "<img src='icons/glued.jpg'> " : "<img src='icons/notglued.jpg'> "
+		          "<img src='icons/glued.jpg'> " : "<img src='icons/notglued.jpg'> "
 
-			  // "<font color='#006600'>Alapra ragasztva</font>"
-			  // :
-			  // "<font color='#FF0000'><strong>Nincs leragasztva!!! </strong></font> "
+		  // "<font color='#006600'>Alapra ragasztva</font>"
+		  // :
+		  // "<font color='#FF0000'><strong>Nincs leragasztva!!! </strong></font> "
 
-			  );
+		  );
 
 		  final String[] detailingGroups = new String[] { "SCRATCH", "PE", "RESIN", "DOC" };
 
 		  final String detailingCriterias[] = new String[] { "externalSurface", "cockpit", "engine", "undercarriage", "gearBay",
-			  "armament", "conversion" };
+		      "armament", "conversion" };
 
 		  for (int i = 0; i < detailingGroups.length; i++)
 		  {
 			for (int j = 0; j < detailingCriterias.length; j++)
 			{
 			  print = print.replaceAll("__" + detailingGroups[i] + "_" + detailingCriterias[j] + "__",
-				  model.detailing[i].criterias.get(j) ? "<font size='+3'>&#8226;</font>"
+			      model.detailing[i].criterias.get(j) ? "<font size='+3'>&#8226;</font>"
 
-				  : "<font size='+3' color='#FFFFFF'>&nbsp</font>");
+			          : "<font size='+3' color='#FFFFFF'>&nbsp</font>");
 			}
 		  }
 
@@ -1978,8 +1972,7 @@ public class RegistrationServlet extends HttpServlet
 	return buff;
   }
 
-  public void process_inputForModifyUserRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void inputForModifyUser(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final HttpSession session = request.getSession(true);
 
@@ -2001,7 +1994,7 @@ public class RegistrationServlet extends HttpServlet
 	return requestURL.toString();
   }
 
-  public void process_sendEmailRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void sendEmail(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final User user = getUser(request);
 
@@ -2010,14 +2003,14 @@ public class RegistrationServlet extends HttpServlet
 	response.sendRedirect("jsp/main.jsp");
   }
 
-  public void process_logoutRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void logout(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final User user = getUser(request);
 
-	if (!onSiteUse)
-	{
-	  sendEmail(user, false);
-	}
+	//	if (!onSiteUse)
+	//	{
+	//	  sendEmail(user, false);
+	//	}
 
 	final HttpSession session = request.getSession(false);
 
@@ -2043,7 +2036,7 @@ public class RegistrationServlet extends HttpServlet
 	systemMessage = servletDAO.getSystemParameter(ServletDAO.SYSTEMPARAMETER.SYSTEMMESSAGE);
   }
 
-  public void process_deleteDataRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void deleteData(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	servletDAO.deleteEntries("MAK_CATEGORY_GROUP");
 
@@ -2057,7 +2050,7 @@ public class RegistrationServlet extends HttpServlet
 
   }
 
-  public void process_statisticsRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void statistics(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 
 	final StringBuffer buff = new StringBuffer();
@@ -2067,7 +2060,7 @@ public class RegistrationServlet extends HttpServlet
 	String show = ServletUtil.getOptionalRequestAttribute(request, "show");
 	if ("-".equals(show))
 	{
-	  show = (String) request.getSession().getAttribute("show");
+	  show = getShowFromReqest(request);
 
 	  if (show == null)
 	  {
@@ -2089,8 +2082,7 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_exceptionHistoryRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void exceptionHistory(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final StringBuffer buff = new StringBuffer();
 
@@ -2121,13 +2113,12 @@ public class RegistrationServlet extends HttpServlet
 
 	logger.trace("getLanguage(): " + language
 	// + " " + languages.get(language).getString("list.models")
-	    );
+	);
 
 	return languages.get(language);
   }
 
-  public void process_getawardedModelsPageRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void getawardedModelsPage(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final StringBuffer buff = new StringBuffer();
 	final String languageCode = getUser(request).language;
@@ -2142,20 +2133,17 @@ public class RegistrationServlet extends HttpServlet
 	writeResponse(response, buff);
   }
 
-  public void process_printAwardedModelsRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void printAwardedModels(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	printAwardedModels(request, response, cerificateOfMeritBuffer);
   }
 
-  public void process_getPresentationPageRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void getPresentationPage(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	printAwardedModels(request, response, presentationBuffer);
   }
 
-  public void process_addAwardedModelsRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void addAwardedModels(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final int rows = Integer.parseInt(ServletUtil.getRequestAttribute(request, "rows"));
 
@@ -2182,7 +2170,7 @@ public class RegistrationServlet extends HttpServlet
   }
 
   private void printAwardedModels(final HttpServletRequest request, final HttpServletResponse response, final StringBuffer buffer)
-	  throws Exception, IOException
+      throws Exception, IOException
   {
 	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
 	final ResourceBundle language = getLanguage(languageCode);
@@ -2205,19 +2193,18 @@ public class RegistrationServlet extends HttpServlet
 	  final Category category = servletDAO.getCategory(model.categoryID);
 
 	  buff.append(buffer.toString().replaceAll("__LASTNAME__", String.valueOf(user.lastName))
-		  .replaceAll("__FIRSTNAME__", String.valueOf(user.firstName))
-		  .replaceAll("__CATEGORY_CODE__", String.valueOf(category.categoryCode))
-		  .replaceAll("__CATEGORY_CODE__", String.valueOf(category.categoryCode))
-		  .replaceAll("__MODEL_NAME__", String.valueOf(model.name)).replaceAll("__MODEL_ID__", String.valueOf(model.modelID))
+	      .replaceAll("__FIRSTNAME__", String.valueOf(user.firstName))
+	      .replaceAll("__CATEGORY_CODE__", String.valueOf(category.categoryCode))
+	      .replaceAll("__CATEGORY_CODE__", String.valueOf(category.categoryCode))
+	      .replaceAll("__MODEL_NAME__", String.valueOf(model.name)).replaceAll("__MODEL_ID__", String.valueOf(model.modelID))
 
-		  .replaceAll("__AWARD__", ServletUtil.getRequestAttribute(request, "award" + httpParameterPostTag).trim()));
+	      .replaceAll("__AWARD__", ServletUtil.getRequestAttribute(request, "award" + httpParameterPostTag).trim()));
 	}
 
 	writeResponse(response, buff);
   }
 
-  public void process_getbatchAddModelPageRequest(final HttpServletRequest request, final HttpServletResponse response)
-	  throws Exception
+  public void getbatchAddModelPage(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	final StringBuffer buff = new StringBuffer();
 	final String languageCode = ServletUtil.getRequestAttribute(request, "language");
@@ -2228,11 +2215,8 @@ public class RegistrationServlet extends HttpServlet
 	//	final StringBuffer countryBuff = new StringBuffer();
 	//	getHTMLCodeForCountrySelect(countryBuff, language, language.getString("select"), "HU", "country");
 
-	buff.append(batchAddModelBuffer
-	    .toString()
-	    .replaceAll("__ADDNEWROW__", language.getString("add.new.row"))
-	    .replaceAll("__ADD__", language.getString("add"))
-	    .replaceAll("__CATEGORIES_LIST__", categoriesBuff.toString())
+	buff.append(batchAddModelBuffer.toString().replaceAll("__ADDNEWROW__", language.getString("add.new.row"))
+	    .replaceAll("__ADD__", language.getString("add")).replaceAll("__CATEGORIES_LIST__", categoriesBuff.toString())
 	    //	    .replaceAll("__YEAROFBIRTHS_LIST__",
 	    //	        yearBuffer.toString().replaceAll("__SELECTVALUE__", "2009").replaceAll("__YEAROFBIRTH__", "2009"))
 
@@ -2266,14 +2250,16 @@ public class RegistrationServlet extends HttpServlet
   }
 
   private User createUser(final HttpServletRequest request, final String email, final String httpParameterPostTag)
-	  throws Exception
+      throws Exception
   {
-	return createUser(request, email, ServletUtil.getRequestAttribute(request, "password" + httpParameterPostTag),
-	    httpParameterPostTag);
+	final String passwordInRequest = servletDAO
+	    .encodeString(ServletUtil.getRequestAttribute(request, "password" + httpParameterPostTag));
+
+	return createUser(request, email, StringEncoder.encode(passwordInRequest), httpParameterPostTag);
   }
 
   private User createUser(final HttpServletRequest request, final String email, final String password,
-	  final String httpParameterPostTag) throws Exception
+      final String httpParameterPostTag) throws Exception
   {
 	// check if all data is sent
 	ServletUtil.getRequestAttribute(request, "language");
@@ -2287,13 +2273,15 @@ public class RegistrationServlet extends HttpServlet
 
 	ServletUtil.getRequestAttribute(request, "yearofbirth" + httpParameterPostTag);
 
-	return new User(servletDAO.getNextID("USERS", "USER_ID"), password, ServletUtil.getRequestAttribute(request, "firstname"
-	    + httpParameterPostTag), ServletUtil.getRequestAttribute(request, "lastname" + httpParameterPostTag),
-	    ServletUtil.getRequestAttribute(request, "language"), ServletUtil.getOptionalRequestAttribute(request, "address"
-	        + httpParameterPostTag), ServletUtil.getOptionalRequestAttribute(request, "telephone" + httpParameterPostTag), email,
-	    true, ServletUtil.getRequestAttribute(request, "country" + httpParameterPostTag), Integer.parseInt(ServletUtil
-	        .getRequestAttribute(request, "yearofbirth" + httpParameterPostTag)), ServletUtil.getOptionalRequestAttribute(
-	        request, "city" + httpParameterPostTag), new LinkedList<ModelClass>());
+	return new User(servletDAO.getNextID("USERS", "USER_ID"), password,
+	    ServletUtil.getRequestAttribute(request, "firstname" + httpParameterPostTag),
+	    ServletUtil.getRequestAttribute(request, "lastname" + httpParameterPostTag),
+	    ServletUtil.getRequestAttribute(request, "language"),
+	    ServletUtil.getOptionalRequestAttribute(request, "address" + httpParameterPostTag),
+	    ServletUtil.getOptionalRequestAttribute(request, "telephone" + httpParameterPostTag), email, true,
+	    ServletUtil.getRequestAttribute(request, "country" + httpParameterPostTag),
+	    Integer.parseInt(ServletUtil.getRequestAttribute(request, "yearofbirth" + httpParameterPostTag)),
+	    ServletUtil.getOptionalRequestAttribute(request, "city" + httpParameterPostTag));
   }
 
   class ExceptionData
@@ -2372,7 +2360,7 @@ public class RegistrationServlet extends HttpServlet
   }
 
   public void getModelForm(final HttpServletRequest request, final HttpServletResponse response, final String action,
-	  final String submitLabel, final Integer modelID) throws Exception
+      final String submitLabel, final Integer modelID) throws Exception
   {
 	final HttpSession session = request.getSession(true);
 
@@ -2387,9 +2375,9 @@ public class RegistrationServlet extends HttpServlet
   }
 
   private void getHTMLCodeForCategorySelect(final StringBuffer buff, final String selectedLabel, final String selectedValue,
-	  final boolean mandatory, final ResourceBundle language, final HttpServletRequest request) throws Exception
+      final boolean mandatory, final ResourceBundle language, final HttpServletRequest request) throws Exception
   {
-	final String show = (String) request.getSession().getAttribute("show");
+	final String show = getShowFromReqest(request);
 
 	buff.append("<div id='categories'>");
 	buff.append("<select name='categoryID'>");
@@ -2440,7 +2428,7 @@ public class RegistrationServlet extends HttpServlet
 	return preRegistrationAllowed;
   }
 
-  public void process_loadImageRequest(final HttpServletRequest request, final HttpServletResponse response) throws Exception
+  public void loadImage(final HttpServletRequest request, final HttpServletResponse response) throws Exception
   {
 	response.setContentType("image/jpeg");
 

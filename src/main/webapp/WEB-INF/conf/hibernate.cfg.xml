@@ -6,13 +6,13 @@
     <session-factory>
 
         <!-- Database connection settings -->
-        <property name="connection.driver_class">com.mysql.jdbc.Driver</property>
+        <property name="connection.driver_class">${db.driver.class}</property>
         <property name="hibernate.connection.url">${db.url}</property>
         <property name="hibernate.connection.username">${db.user}</property>
         <property name="connection.password">${db.password}</property>
 
         <!-- SQL dialect -->
-        <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
+        <property name="hibernate.dialect">${hibernate.dialect}</property>
 
         <property name="connection.provider_class">org.hibernate.connection.C3P0ConnectionProvider</property>
 
@@ -24,6 +24,8 @@
         <property name="c3p0.timeout">14400</property>
         <property name="c3p0.idle_test_period">3600</property>
         <property name="c3p0.validate">true</property>
+        <property name="c3p0.testConnectionOnCheckin">true</property>
+<!--         <property name="c3p0.preferredTestQuery">true</property> -->
 
         <property name="connection.autoReconnect">true</property>
         <!-- JDBC connection pool (use the built-in) -->

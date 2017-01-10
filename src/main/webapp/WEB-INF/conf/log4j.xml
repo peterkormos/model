@@ -17,7 +17,7 @@
   </appender>
 
 
-  <logger name="servlet.RegistrationServlet">
+  <logger name="servlet">
         <level value="TRACE" />
     <appender-ref ref="ASYNC_RegistrationServlet"/>
   </logger>
